@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::LazyLock};
 
-use nes_base::{Reader, Writer};
+use nes_base::{BusAdapter, Interrupt, Reader, Writer};
 
 use crate::common::{AddressingMode, InstructionEnum};
 use crate::opcode::get_op;
@@ -20,9 +20,8 @@ enum StatusFlag {
 
 // ctx 结构体
 pub struct Context {
-    // ctx 总线的读写器
-    bus_reader: Rc<dyn Reader>,
-    bus_writer: Rc<RefCell<dyn Writer>>,
+    // 总线的读写器
+    bus: Rc<RefCell<dyn BusAdapter>>,
 
     // ctx 寄存器
     reg_a: u8,
@@ -32,15 +31,14 @@ pub struct Context {
     reg_pc: u16,
     reg_status: u8,
 
-    pub remaining_cycles: u8,
+    pub remaining_cycles: u32,
     pub data_address: u16,
 }
 
 impl Context {
-    pub fn new(bus_reader: Rc<dyn Reader>, bus_writer: Rc<RefCell<dyn Writer>>) -> Self {
+    pub fn new(bus: Rc<RefCell<dyn BusAdapter>>) -> Self {
         Self {
-            bus_reader,
-            bus_writer,
+            bus: bus,
             reg_a: 0,
             reg_x: 0,
             reg_y: 0,
@@ -81,15 +79,15 @@ fn is_page_crossed(addr1: u16, addr2: u16) -> bool {
 impl Context {
     // 总线读写方法
     fn read_bus_8bit(&self, addr: u16) -> u8 {
-        self.bus_reader.read(addr)
+        self.bus.borrow().read(addr)
     }
 
     fn write_bus_8bit(&self, addr: u16, value: u8) {
-        self.bus_writer.borrow_mut().write(addr, value);
+        self.bus.borrow_mut().write(addr, value);
     }
 
     fn read_bus_16bit(&self, addr: u16) -> u16 {
-        self.bus_reader.read_u16(addr)
+        self.bus.borrow().read_u16(addr)
     }
 
     // 栈操作
@@ -716,12 +714,6 @@ pub fn execute_instruction(ctx: &mut Context, instruction: InstructionEnum) {
     }
 }
 
-pub enum Interrupt {
-    Nmi,
-    Reset,
-    Irq,
-}
-
 fn interrupt_nmi(ctx: &mut Context) {
     ctx.push_stack_16bit(ctx.reg_pc);
     ctx.push_stack(ctx.reg_status | 0x30);
@@ -761,58 +753,45 @@ pub fn execute_interrupt(ctx: &mut Context, signal: Interrupt) {
 
 pub struct AddressingModeResult {
     pub address: u16,
-    pub value: u8,
     pub page_crossed: bool,
     pub pc_increment: u16,
 }
 
 pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
     match ctx.get_op_mode() {
-        AddressingMode::Immediate => {
-            let value = ctx.read_bus_8bit(ctx.reg_pc + 1);
-            AddressingModeResult {
-                address: ctx.reg_pc + 1,
-                value,
-                page_crossed: false,
-                pc_increment: 2,
-            }
-        }
+        AddressingMode::Immediate => AddressingModeResult {
+            address: ctx.reg_pc + 1,
+            page_crossed: false,
+            pc_increment: 2,
+        },
         AddressingMode::ZeroPage => {
             let addr = ctx.read_bus_8bit(ctx.reg_pc + 1) as u16;
-            let value = ctx.read_bus_8bit(addr);
             AddressingModeResult {
                 address: addr,
-                value,
                 page_crossed: false,
                 pc_increment: 2,
             }
         }
         AddressingMode::ZeroPageX => {
             let addr = ctx.read_bus_8bit(ctx.reg_pc + 1) as u16 + ctx.reg_x as u16;
-            let value = ctx.read_bus_8bit(addr);
             AddressingModeResult {
                 address: addr,
-                value,
                 page_crossed: false,
                 pc_increment: 2,
             }
         }
         AddressingMode::ZeroPageY => {
             let addr = ctx.read_bus_8bit(ctx.reg_pc + 1) as u16 + ctx.reg_y as u16;
-            let value = ctx.read_bus_8bit(addr);
             AddressingModeResult {
                 address: addr,
-                value,
                 page_crossed: false,
                 pc_increment: 2,
             }
         }
         AddressingMode::Absolute => {
             let addr = ctx.read_bus_16bit(ctx.reg_pc + 1);
-            let value = ctx.read_bus_8bit(addr);
             AddressingModeResult {
                 address: addr,
-                value,
                 page_crossed: false,
                 pc_increment: 3,
             }
@@ -820,11 +799,9 @@ pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
         AddressingMode::AbsoluteX => {
             let base_addr = ctx.read_bus_16bit(ctx.reg_pc + 1);
             let addr = base_addr.wrapping_add(ctx.reg_x as u16);
-            let value = ctx.read_bus_8bit(addr);
             let page_crossed = is_page_crossed(base_addr, addr);
             AddressingModeResult {
                 address: addr,
-                value,
                 page_crossed,
                 pc_increment: 3,
             }
@@ -832,11 +809,9 @@ pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
         AddressingMode::AbsoluteY => {
             let base_addr = ctx.read_bus_16bit(ctx.reg_pc + 1);
             let addr = base_addr.wrapping_add(ctx.reg_y as u16);
-            let value = ctx.read_bus_8bit(addr);
             let page_crossed = is_page_crossed(base_addr, addr);
             AddressingModeResult {
                 address: addr,
-                value,
                 page_crossed,
                 pc_increment: 3,
             }
@@ -844,10 +819,8 @@ pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
         AddressingMode::IndexedIndirect => {
             let base_addr = ctx.read_bus_8bit(ctx.reg_pc + 1) as u16 + ctx.reg_x as u16;
             let addr = ctx.read_bus_16bit(base_addr);
-            let value = ctx.read_bus_8bit(addr);
             AddressingModeResult {
                 address: addr,
-                value,
                 page_crossed: false,
                 pc_increment: 2,
             }
@@ -855,11 +828,9 @@ pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
         AddressingMode::IndirectIndexed => {
             let base_addr = ctx.read_bus_8bit(ctx.reg_pc + 1) as u16;
             let addr = ctx.read_bus_16bit(base_addr).wrapping_add(ctx.reg_y as u16);
-            let value = ctx.read_bus_8bit(addr);
             let page_crossed = is_page_crossed(base_addr, addr);
             AddressingModeResult {
                 address: addr,
-                value,
                 page_crossed,
                 pc_increment: 2,
             }
@@ -868,7 +839,6 @@ pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
             // 累加器模式没有地址，只是操作累加器
             AddressingModeResult {
                 address: 0,
-                value: ctx.reg_a,
                 page_crossed: false,
                 pc_increment: 1,
             }
@@ -878,7 +848,6 @@ pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
             let addr = ctx.reg_pc.wrapping_add(2).wrapping_add(offset as u16);
             AddressingModeResult {
                 address: addr,
-                value: 0, // 相对寻址模式没有特定的值
                 page_crossed: is_page_crossed(ctx.reg_pc, addr),
                 pc_increment: 2,
             }
@@ -887,7 +856,6 @@ pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
             // 隐含寻址模式没有地址，只是执行指令
             AddressingModeResult {
                 address: 0,
-                value: 0, // 无特定值
                 page_crossed: false,
                 pc_increment: 1,
             }
@@ -895,10 +863,8 @@ pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
         AddressingMode::Indirect => {
             let base_addr = ctx.read_bus_16bit(ctx.reg_pc + 1);
             let addr = ctx.read_bus_16bit(base_addr);
-            let value = ctx.read_bus_8bit(addr);
             AddressingModeResult {
                 address: addr,
-                value,
                 page_crossed: false,
                 pc_increment: 3,
             }

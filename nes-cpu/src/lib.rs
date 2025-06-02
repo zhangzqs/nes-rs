@@ -1,25 +1,59 @@
+use nes_base::{BusAdapter, CPU, Interrupt};
 use state::{Context, execute_instruction, execute_interrupt, get_data_address};
+use std::{cell::RefCell, rc::Rc};
 
 mod common;
 mod opcode;
 mod state;
 
-struct CPU {
-    context: state::Context,
-    interrupt: Option<state::Interrupt>,
+pub struct CPUImpl {
+    context: Context,
+    interrupt: Option<Interrupt>,
+    total_cycles: u32,
 }
 
-impl CPU {
-    fn send_interrupt(&mut self, interrupt: state::Interrupt) {
+impl CPUImpl {
+    pub fn new(bus: Rc<RefCell<dyn BusAdapter>>) -> Self {
+        Self {
+            context: Context::new(bus),
+            interrupt: None,
+            total_cycles: 0,
+        }
+    }
+}
+
+impl CPU for CPUImpl {
+    fn total_cycles(&self) -> u32 {
+        self.total_cycles
+    }
+
+    fn remaining_cycles(&self) -> u32 {
+        self.context.remaining_cycles
+    }
+
+    fn increase_cycles(&mut self, cycles: u32) {
+        self.context.remaining_cycles += cycles;
+    }
+
+    fn send_interrupt(&mut self, interrupt: Interrupt) {
         if self.interrupt.is_none() {
             self.interrupt = Some(interrupt);
+            return;
         }
+        // 如果已经有中断在等待，则不处理新的中断
+        // 这可以防止在处理中断时再次触发中断
+        // 例如在 NMI 中断处理期间不允许 IRQ 中断
+        log::warn!(
+            "CPU already has an interrupt pending, ignoring new interrupt: {:?}",
+            interrupt
+        );
     }
 
     fn clock(&mut self) {
         // 执行周期
-        if self.context.remaining_cycles > 0 {
+        if self.remaining_cycles() > 0 {
             self.context.remaining_cycles -= 1;
+            self.total_cycles += 1;
             return;
         }
 
@@ -32,14 +66,14 @@ impl CPU {
 
         // 取指周期
         let op = opcode::get_op(self.context.get_opcode());
-        self.context.remaining_cycles = op.cycles;
+        self.increase_cycles(op.cycles as u32);
 
         // 寻址
         let result = get_data_address(&self.context);
         self.context.data_address = result.address;
         self.context.increase_pc(result.pc_increment);
         if result.page_crossed && op.increase_cycle_when_cross_page {
-            self.context.remaining_cycles += 1;
+            self.increase_cycles(1);
         }
 
         // 执行指令

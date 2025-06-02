@@ -5,29 +5,10 @@ use crate::common::{AddressingMode, InstructionEnum};
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Op {
-    pub opcode: u8,
     pub instruction: InstructionEnum,
     pub mode: AddressingMode,
     pub cycles: u8,
     pub increase_cycle_when_cross_page: bool,
-}
-
-impl Op {
-    fn new(
-        opcode: u8,
-        instruction: InstructionEnum,
-        mode: AddressingMode,
-        cycles: u8,
-        increase_cycle_when_cross_page: bool,
-    ) -> Self {
-        Self {
-            opcode,
-            instruction,
-            mode,
-            cycles,
-            increase_cycle_when_cross_page,
-        }
-    }
 }
 
 struct OpcodeManager {
@@ -1185,10 +1166,15 @@ impl OpcodeManager {
         );
 
         let mut op_table: HashMap<u8, Op> = HashMap::new();
-        for (opcode, (instruction, mode, cycles, increase_cycle)) in op_args_table {
+        for (opcode, (instruction, mode, cycles, increase_cycle_when_cross_page)) in op_args_table {
             op_table.insert(
                 opcode,
-                Op::new(opcode, instruction, mode, cycles, increase_cycle),
+                Op {
+                    instruction,
+                    mode,
+                    cycles,
+                    increase_cycle_when_cross_page,
+                },
             );
         }
 
