@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use nes_base::Cartridge;
+use nes_base::{Cartridge, Memory};
 
 pub struct Mapper2 {
     prg_banks: u8,
@@ -8,15 +8,15 @@ pub struct Mapper2 {
     prg_bank2: u8,
     chr_rom: Rc<RefCell<Vec<u8>>>,
     prg_rom: Rc<RefCell<Vec<u8>>>,
-    sram: Option<Rc<RefCell<Vec<u8>>>>,
+    sram: Option<Rc<RefCell<dyn Memory>>>,
 }
 
 impl Mapper2 {
     pub fn new(
         prg_banks: u8,
-        chr_rom: Vec<u8>,
-        prg_rom: Vec<u8>,
-        sram: Option<Rc<RefCell<Vec<u8>>>>,
+        chr_rom: Rc<RefCell<Vec<u8>>>,
+        prg_rom: Rc<RefCell<Vec<u8>>>,
+        sram: Option<Rc<RefCell<dyn Memory>>>,
     ) -> Self {
         let prg_bank1 = 0;
         let prg_bank2 = prg_banks - 1;
@@ -24,8 +24,8 @@ impl Mapper2 {
             prg_banks,
             prg_bank1,
             prg_bank2,
-            chr_rom: Rc::new(RefCell::new(chr_rom)),
-            prg_rom: Rc::new(RefCell::new(prg_rom)),
+            chr_rom,
+            prg_rom,
             sram,
         }
     }
@@ -42,8 +42,7 @@ impl Mapper2 {
             0x6000..0x8000 => {
                 // SRAM
                 if let Some(ref sram) = self.sram {
-                    let sram_borrowed = sram.borrow();
-                    sram_borrowed[(addr as usize - 0x6000) % sram_borrowed.len()]
+                    sram.borrow().read(addr - 0x6000)
                 } else {
                     panic!("SRAM not available");
                 }
@@ -62,7 +61,7 @@ impl Mapper2 {
         }
     }
 
-    fn write(&mut self, addr: u16, data: u8) {
+    fn write(&mut self, addr: u16, value: u8) {
         match addr {
             0x0000..0x2000 => {
                 // CHR ROM is read-only, no write operation
@@ -71,16 +70,14 @@ impl Mapper2 {
             0x6000..0x8000 => {
                 // SRAM
                 if let Some(ref mut sram) = self.sram {
-                    let mut sram_borrowed = sram.borrow_mut();
-                    let sram_size = sram_borrowed.len();
-                    sram_borrowed[(addr as usize - 0x6000) % sram_size] = data;
+                    sram.borrow_mut().write(addr - 0x6000, value);
                 } else {
                     panic!("SRAM not available");
                 }
             }
             0x8000.. => {
                 // PRG ROM Bank selection
-                self.prg_bank1 = data % self.prg_banks;
+                self.prg_bank1 = value % self.prg_banks;
             }
             _ => panic!("Write out of range: {}", addr),
         }
@@ -92,8 +89,8 @@ impl Cartridge for Mapper2 {
         self.read(addr)
     }
 
-    fn cpu_write(&mut self, addr: u16, data: u8) {
-        self.write(addr, data);
+    fn cpu_write(&mut self, addr: u16, value: u8) {
+        self.write(addr, value);
     }
 
     fn ppu_read(&self, addr: u16) -> u8 {
@@ -106,7 +103,7 @@ impl Cartridge for Mapper2 {
         }
     }
 
-    fn ppu_write(&mut self, addr: u16, data: u8) {
+    fn ppu_write(&mut self, addr: u16, _: u8) {
         if addr < 0x2000 {
             // CHR ROM is read-only, no write operation
             panic!("Cannot write to CHR ROM at address: {}", addr);

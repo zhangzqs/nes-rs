@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::LazyLock};
 
-use nes_base::{BusAdapter, Interrupt, Reader, Writer};
+use nes_base::{BusAdapter, Interrupt};
 
 use crate::common::{AddressingMode, InstructionEnum};
 use crate::opcode::get_op;
