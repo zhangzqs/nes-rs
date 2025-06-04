@@ -2,12 +2,12 @@ use std::{cell::RefCell, rc::Rc};
 
 use nes_base::{Bus, BusAdapter, Reader, Writer};
 
-struct BusImpl {
+pub struct BusImpl {
     devices: Vec<Rc<RefCell<dyn BusAdapter>>>,
 }
 
 impl BusImpl {
-    fn new() -> Self {
+    pub fn new() -> Self {
         BusImpl {
             devices: Default::default(),
         }
@@ -27,7 +27,7 @@ impl Reader for BusImpl {
                 return device.borrow().read(address);
             }
         }
-        panic!("Address out of range: {}", address);
+        panic!("Address out of range: 0x{:04X}", address);
     }
 }
 
@@ -39,7 +39,7 @@ impl Writer for BusImpl {
                 return;
             }
         }
-        panic!("Address out of range: {}", address);
+        panic!("Address out of range: 0x{:04X}", address);
     }
 }
 

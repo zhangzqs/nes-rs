@@ -32,6 +32,6 @@ impl Writer for CartridgeCPUBusAdapter {
 
 impl BusAdapter for CartridgeCPUBusAdapter {
     fn address_accept(&self, addr: u16) -> bool {
-        return addr >= 0x4020 && addr < 0xFFFF;
+        return addr >= 0x4020;
     }
 }

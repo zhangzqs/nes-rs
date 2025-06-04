@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+regex = "1.11.1"
 nes-base = { path = "../nes-base" }
 nes-cartridge = { path = "../nes-cartridge" }
-regex = "1.11.1"
+nes-board = { path = "../nes-board" }
+nes-cpu = { path = "../nes-cpu" }
+nes-ram = { path = "../nes-ram" }
+nes-bus = { path = "../nes-bus" }

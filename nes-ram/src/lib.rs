@@ -32,4 +32,10 @@ impl Writer for RAMImpl {
     }
 }
 
-impl RAM for RAMImpl {}
+impl RAM for RAMImpl {
+    fn reset(&mut self) {
+        for byte in &mut self.data {
+            *byte = 0;
+        }
+    }
+}

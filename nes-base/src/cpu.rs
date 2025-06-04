@@ -21,6 +21,8 @@ pub struct CPUState {
 }
 
 pub trait CPU {
+    fn set_reg_pc(&mut self, pc: u16);
+    fn reset(&mut self);
     fn attach_bus(&mut self, bus: Rc<RefCell<dyn BusAdapter>>);
     fn dump_state(&self) -> CPUState;
     fn increase_cycles(&mut self, cycles: u32);

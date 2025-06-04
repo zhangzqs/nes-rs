@@ -7,7 +7,7 @@ mod joypad;
 mod memory;
 mod ppu;
 
-pub use apu::APU;
+pub use apu::{APU, APUBusAdapter};
 pub use bus::{Bus, BusAdapter, Reader, Writer};
 pub use cartridge::{Cartridge, Mirroring, CartridgeCPUBusAdapter};
 pub use cpu::{CPU, CPUState, Interrupt};

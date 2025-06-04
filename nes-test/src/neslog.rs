@@ -67,7 +67,7 @@ impl NESLog {
     }
 }
 
-pub fn assert_cpu_state(bus: Rc<RefCell<dyn Reader>>, expect: &NESLog, actual: CPUState) {
+pub fn assert_cpu_state(bus: Rc<RefCell<dyn Reader>>, expect: &NESLog, actual: &CPUState) {
     assert_eq!(expect.reg_pc, actual.reg_pc, "PC mismatch");
 
     assert_eq!(

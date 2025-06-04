@@ -23,6 +23,16 @@ impl CPUImpl {
 }
 
 impl CPU for CPUImpl {
+    fn set_reg_pc(&mut self, pc: u16) {
+        self.context.reg_pc = pc;
+        self.context.remaining_cycles = 0; // 重置剩余周期
+    }
+
+    fn reset(&mut self) {
+        execute_interrupt(&mut self.context, Interrupt::Reset);
+        self.total_cycles = 7;
+    }
+
     fn increase_cycles(&mut self, cycles: u32) {
         self.context.remaining_cycles += cycles;
     }
