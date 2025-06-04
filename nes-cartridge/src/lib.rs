@@ -1,11 +1,11 @@
-use std::{cell::RefCell, rc::Rc};
-
-use nes_base::{Cartridge, Memory};
-use nes_file::NESFile;
+use nes_base::{Cartridge, RAM};
 use nes_ram::RAMImpl;
+use std::{cell::RefCell, rc::Rc};
 
 mod mapper;
 mod nes_file;
+
+pub use nes_file::NESFile;
 
 pub struct CartridgeImpl {
     mapper: Box<dyn Cartridge>,
@@ -17,7 +17,7 @@ impl CartridgeImpl {
         let prg_banks = nes.prg_banks();
         let chr_rom = Rc::new(RefCell::new(nes.chr_rom()));
         let prg_rom = Rc::new(RefCell::new(nes.prg_rom()));
-        let sram: Option<Rc<RefCell<dyn Memory>>> = if nes.has_battery_backed() {
+        let sram: Option<Rc<RefCell<dyn RAM>>> = if nes.has_battery_backed() {
             Some(Rc::new(RefCell::new(RAMImpl::new(0x2000))))
         } else {
             None

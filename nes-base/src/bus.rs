@@ -23,6 +23,6 @@ pub trait BusAdapter: Reader + Writer {
     fn address_accept(&self, addr: u16) -> bool;
 }
 
-pub trait Bus: Reader + Writer {
+pub trait Bus: BusAdapter {
     fn register_device(&mut self, device: Rc<RefCell<dyn BusAdapter>>);
 }

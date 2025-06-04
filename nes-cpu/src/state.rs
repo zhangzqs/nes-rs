@@ -21,24 +21,24 @@ enum StatusFlag {
 // ctx 结构体
 pub struct Context {
     // 总线的读写器
-    bus: Rc<RefCell<dyn BusAdapter>>,
+    pub bus: Option<Rc<RefCell<dyn BusAdapter>>>,
 
     // ctx 寄存器
-    reg_a: u8,
-    reg_x: u8,
-    reg_y: u8,
-    reg_sp: u8,
-    reg_pc: u16,
-    reg_status: u8,
+    pub reg_a: u8,
+    pub reg_x: u8,
+    pub reg_y: u8,
+    pub reg_sp: u8,
+    pub reg_pc: u16,
+    pub reg_status: u8,
 
     pub remaining_cycles: u32,
     pub data_address: u16,
 }
 
 impl Context {
-    pub fn new(bus: Rc<RefCell<dyn BusAdapter>>) -> Self {
+    pub fn new() -> Self {
         Self {
-            bus: bus,
+            bus: None,
             reg_a: 0,
             reg_x: 0,
             reg_y: 0,
@@ -79,15 +79,24 @@ fn is_page_crossed(addr1: u16, addr2: u16) -> bool {
 impl Context {
     // 总线读写方法
     fn read_bus_8bit(&self, addr: u16) -> u8 {
-        self.bus.borrow().read(addr)
+        if self.bus.is_none() {
+            panic!("Bus is not attached to the context");
+        }
+        self.bus.as_ref().unwrap().borrow().read(addr)
     }
 
     fn write_bus_8bit(&self, addr: u16, value: u8) {
-        self.bus.borrow_mut().write(addr, value);
+        if self.bus.is_none() {
+            panic!("Bus is not attached to the context");
+        }
+        self.bus.as_ref().unwrap().borrow_mut().write(addr, value);
     }
 
     fn read_bus_16bit(&self, addr: u16) -> u16 {
-        self.bus.borrow().read_u16(addr)
+        if self.bus.is_none() {
+            panic!("Bus is not attached to the context");
+        }
+        self.bus.as_ref().unwrap().borrow().read_u16(addr)
     }
 
     // 栈操作

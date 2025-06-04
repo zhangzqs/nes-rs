@@ -1,4 +1,4 @@
-use nes_base::{Memory, Reader, Writer};
+use nes_base::{RAM, Reader, Writer};
 
 pub struct RAMImpl {
     data: Vec<u8>,
@@ -32,4 +32,4 @@ impl Writer for RAMImpl {
     }
 }
 
-impl Memory for RAMImpl {}
+impl RAM for RAMImpl {}

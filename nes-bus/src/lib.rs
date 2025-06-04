@@ -42,3 +42,11 @@ impl Writer for BusImpl {
         panic!("Address out of range: {}", address);
     }
 }
+
+impl BusAdapter for BusImpl {
+    fn address_accept(&self, addr: u16) -> bool {
+        self.devices
+            .iter()
+            .any(|device| device.borrow().address_accept(addr))
+    }
+}

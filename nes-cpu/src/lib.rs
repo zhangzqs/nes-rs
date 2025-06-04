@@ -1,4 +1,4 @@
-use nes_base::{BusAdapter, CPU, Interrupt};
+use nes_base::{BusAdapter, CPU, CPUState, Interrupt};
 use state::{Context, execute_instruction, execute_interrupt, get_data_address};
 use std::{cell::RefCell, rc::Rc};
 
@@ -13,9 +13,9 @@ pub struct CPUImpl {
 }
 
 impl CPUImpl {
-    pub fn new(bus: Rc<RefCell<dyn BusAdapter>>) -> Self {
+    pub fn new() -> Self {
         Self {
-            context: Context::new(bus),
+            context: Context::new(),
             interrupt: None,
             total_cycles: 0,
         }
@@ -23,14 +23,6 @@ impl CPUImpl {
 }
 
 impl CPU for CPUImpl {
-    fn total_cycles(&self) -> u32 {
-        self.total_cycles
-    }
-
-    fn remaining_cycles(&self) -> u32 {
-        self.context.remaining_cycles
-    }
-
     fn increase_cycles(&mut self, cycles: u32) {
         self.context.remaining_cycles += cycles;
     }
@@ -51,7 +43,7 @@ impl CPU for CPUImpl {
 
     fn clock(&mut self) {
         // 执行周期
-        if self.remaining_cycles() > 0 {
+        if self.context.remaining_cycles > 0 {
             self.context.remaining_cycles -= 1;
             self.total_cycles += 1;
             return;
@@ -78,5 +70,22 @@ impl CPU for CPUImpl {
 
         // 执行指令
         execute_instruction(&mut self.context, op.instruction);
+    }
+
+    fn dump_state(&self) -> CPUState {
+        CPUState {
+            total_cycles: self.total_cycles,
+            remaining_cycles: self.context.remaining_cycles,
+            reg_a: self.context.reg_a,
+            reg_x: self.context.reg_x,
+            reg_y: self.context.reg_y,
+            reg_sp: self.context.reg_sp,
+            reg_pc: self.context.reg_pc,
+            reg_status: self.context.reg_status,
+        }
+    }
+
+    fn attach_bus(&mut self, bus: Rc<RefCell<dyn BusAdapter>>) {
+        self.context.bus = Some(bus);
     }
 }

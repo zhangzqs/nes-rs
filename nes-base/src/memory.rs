@@ -1,3 +1,25 @@
-use crate::{Reader, Writer};
+use std::{cell::RefCell, rc::Rc};
 
-pub trait Memory: Reader + Writer {}
+use crate::{BusAdapter, Reader, Writer};
+
+pub trait RAM: Reader + Writer {}
+
+pub struct RAMBusAdapter(pub Rc<RefCell<dyn RAM>>);
+
+impl Reader for RAMBusAdapter {
+    fn read(&self, addr: u16) -> u8 {
+        self.0.borrow().read(addr)
+    }
+}
+
+impl Writer for RAMBusAdapter {
+    fn write(&mut self, addr: u16, data: u8) {
+        self.0.borrow_mut().write(addr, data);
+    }
+}
+
+impl BusAdapter for RAMBusAdapter {
+    fn address_accept(&self, addr: u16) -> bool {
+        addr < 0x2000 // 2KB of RAM
+    }
+}

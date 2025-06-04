@@ -28,7 +28,7 @@ impl Writer for DMABusAdapter {
     fn write(&mut self, _: u16, data: u8) {
         let source_page = data;
         self.dma.borrow_mut().transfer_page(source_page, 0);
-        let total_cycles = self.cpu.borrow().total_cycles();
+        let total_cycles = self.cpu.borrow().dump_state().total_cycles;
         // 513 cycles for DMA transfer, plus 1 cycle if total_cycles is odd
         self.cpu
             .borrow_mut()
