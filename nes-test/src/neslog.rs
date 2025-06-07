@@ -4,6 +4,7 @@ use std::{
     sync::OnceLock,
 };
 
+use log::debug;
 use nes_base::{CPUState, Reader};
 use regex::Regex;
 
@@ -30,11 +31,11 @@ impl NESLog {
     /// 解析一行日志为 NesLog 结构体
     pub fn parse_line(log: &str) -> NESLog {
         let re = RE.get_or_init(|| {
-            println!("Compiling regex");
+            debug!("Compiling regex");
             let re = Regex::new(
                 r"^(\w{4})  (\w{2}) (\w{2}|  ) (\w{2}|  ) [ *]([A-Z]{3}) (.+) A:(\w{2}) X:(\w{2}) Y:(\w{2}) P:(\w{2}) SP:(\w{2}) PPU:([0-9 ]{3}),([0-9 ]{3}) CYC:(\d+)$"
             ).unwrap();
-            println!("Regex compiled");
+            debug!("Regex compiled");
             re
         });
 
@@ -67,6 +68,21 @@ impl NESLog {
     }
 }
 
+impl Into<CPUState> for NESLog {
+    fn into(self) -> CPUState {
+        CPUState {
+            total_cycles: self.cpu_cycles,
+            remaining_cycles: 0, // Remaining cycles are not logged in NESLog
+            reg_a: self.reg_a,
+            reg_x: self.reg_x,
+            reg_y: self.reg_y,
+            reg_sp: self.reg_sp,
+            reg_pc: self.reg_pc,
+            reg_status: self.reg_status.into(),
+        }
+    }
+}
+
 pub fn assert_cpu_state(bus: Rc<RefCell<dyn Reader>>, expect: &NESLog, actual: &CPUState) {
     assert_eq!(expect.reg_pc, actual.reg_pc, "PC mismatch");
 
@@ -79,7 +95,9 @@ pub fn assert_cpu_state(bus: Rc<RefCell<dyn Reader>>, expect: &NESLog, actual: &
     assert_eq!(expect.reg_a, actual.reg_a, "A register mismatch");
     assert_eq!(expect.reg_x, actual.reg_x, "X register mismatch");
     assert_eq!(expect.reg_y, actual.reg_y, "Y register mismatch");
-    assert_eq!(expect.reg_status, actual.reg_status, "P register mismatch");
+
+    let actual_reg_status: u8 = actual.reg_status.into();
+    assert_eq!(expect.reg_status, actual_reg_status, "P register mismatch");
     assert_eq!(expect.reg_sp, actual.reg_sp, "SP register mismatch");
     assert_eq!(
         expect.cpu_cycles, actual.total_cycles,

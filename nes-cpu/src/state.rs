@@ -1,9 +1,10 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::LazyLock};
 
+use log::debug;
 use nes_base::{BusAdapter, Interrupt};
 
 use crate::common::{AddressingMode, InstructionEnum};
-use crate::opcode::get_op;
+use crate::opcode::{Op, get_op};
 
 // 状态标志位
 #[derive(Debug, Clone, Copy)]
@@ -33,6 +34,7 @@ pub struct Context {
 
     pub remaining_cycles: u32,
     pub data_address: u16,
+    pub op: Option<Op>,
 }
 
 impl Context {
@@ -47,15 +49,8 @@ impl Context {
             reg_status: 0x24, // Unused 和 Break flags set
             remaining_cycles: 7,
             data_address: 0,
+            op: None,
         }
-    }
-
-    pub fn increase_pc(&mut self, increment: u16) {
-        self.reg_pc = self.reg_pc.wrapping_add(increment);
-    }
-
-    pub fn get_opcode(&self) -> u8 {
-        self.read_bus_8bit(self.reg_pc)
     }
 }
 
@@ -76,9 +71,41 @@ fn is_page_crossed(addr1: u16, addr2: u16) -> bool {
     (addr1 & 0xFF00) != (addr2 & 0xFF00)
 }
 
+// 状态寄存器操作
+fn get_status_flag(status: u8, flag: StatusFlag) -> bool {
+    let bit = match flag {
+        StatusFlag::Carry => 0,
+        StatusFlag::Zero => 1,
+        StatusFlag::InterruptDisable => 2,
+        StatusFlag::DecimalMode => 3,
+        StatusFlag::BreakCommand => 4,
+        StatusFlag::Unused => 5,
+        StatusFlag::Overflow => 6,
+        StatusFlag::Negative => 7,
+    };
+    get_bit(status, bit)
+}
+
+fn set_status_flag(status: u8, flag: StatusFlag, value: bool) -> u8 {
+    let bit = match flag {
+        StatusFlag::Carry => 0,
+        StatusFlag::Zero => 1,
+        StatusFlag::InterruptDisable => 2,
+        StatusFlag::DecimalMode => 3,
+        StatusFlag::BreakCommand => 4,
+        StatusFlag::Unused => 5,
+        StatusFlag::Overflow => 6,
+        StatusFlag::Negative => 7,
+    };
+
+    let mut status = status;
+    set_bit(&mut status, bit, value);
+    status
+}
+
 impl Context {
     // 总线读写方法
-    fn read_bus_8bit(&self, addr: u16) -> u8 {
+    pub fn read_bus_8bit(&self, addr: u16) -> u8 {
         if self.bus.is_none() {
             panic!("Bus is not attached to the context");
         }
@@ -123,36 +150,15 @@ impl Context {
 
     // 状态寄存器操作
     fn get_status_flag(&self, flag: StatusFlag) -> bool {
-        let bit = match flag {
-            StatusFlag::Carry => 0,
-            StatusFlag::Zero => 1,
-            StatusFlag::InterruptDisable => 2,
-            StatusFlag::DecimalMode => 3,
-            StatusFlag::BreakCommand => 4,
-            StatusFlag::Unused => 5,
-            StatusFlag::Overflow => 6,
-            StatusFlag::Negative => 7,
-        };
-        get_bit(self.reg_status, bit)
+        return get_status_flag(self.reg_status, flag);
     }
 
     fn set_status_flag(&mut self, flag: StatusFlag, value: bool) {
-        let bit = match flag {
-            StatusFlag::Carry => 0,
-            StatusFlag::Zero => 1,
-            StatusFlag::InterruptDisable => 2,
-            StatusFlag::DecimalMode => 3,
-            StatusFlag::BreakCommand => 4,
-            StatusFlag::Unused => 5,
-            StatusFlag::Overflow => 6,
-            StatusFlag::Negative => 7,
-        };
-        set_bit(&mut self.reg_status, bit, value);
+        self.reg_status = set_status_flag(self.reg_status, flag, value);
     }
 
     fn get_op_mode(&self) -> AddressingMode {
-        let opcode = self.read_bus_8bit(self.reg_pc);
-        get_op(opcode).mode
+        self.op.unwrap().mode
     }
 }
 
@@ -386,12 +392,15 @@ fn instruction_ldy(ctx: &mut Context) {
     ctx.set_status_flag(StatusFlag::Negative, get_bit(ctx.reg_y, 7));
 }
 
+/// 逻辑右移指令，将目标操作数右移，并将最低位移入进位标志位。
 fn instruction_lsr(ctx: &mut Context) {
+    debug!("LSR: mode={:?}", ctx.get_op_mode());
     let tmp = if ctx.get_op_mode() == AddressingMode::Accumulator {
         ctx.reg_a
     } else {
         ctx.read_bus_8bit(ctx.data_address)
     };
+    debug!("LSR: tmp={:#04x}", tmp);
     ctx.set_status_flag(StatusFlag::Carry, get_bit(tmp, 0));
     let tmp = tmp >> 1;
     if ctx.get_op_mode() == AddressingMode::Accumulator {
@@ -426,11 +435,16 @@ fn instruction_pla(ctx: &mut Context) {
 
 fn instruction_plp(ctx: &mut Context) {
     let status = ctx.pop_stack();
-    ctx.set_status_flag(
+    let status = set_status_flag(
+        status,
         StatusFlag::BreakCommand,
         ctx.get_status_flag(StatusFlag::BreakCommand),
     );
-    ctx.set_status_flag(StatusFlag::Unused, ctx.get_status_flag(StatusFlag::Unused));
+    let status = set_status_flag(
+        status,
+        StatusFlag::Unused,
+        ctx.get_status_flag(StatusFlag::Unused),
+    );
     ctx.reg_status = status;
 }
 
@@ -472,11 +486,16 @@ fn instruction_ror(ctx: &mut Context) {
 
 fn instruction_rti(ctx: &mut Context) {
     let status = ctx.pop_stack();
-    ctx.set_status_flag(
+    let status = set_status_flag(
+        status,
         StatusFlag::BreakCommand,
         ctx.get_status_flag(StatusFlag::BreakCommand),
     );
-    ctx.set_status_flag(StatusFlag::Unused, ctx.get_status_flag(StatusFlag::Unused));
+    let status = set_status_flag(
+        status,
+        StatusFlag::Unused,
+        ctx.get_status_flag(StatusFlag::Unused),
+    );
     ctx.reg_status = status;
     ctx.reg_pc = ctx.pop_stack_16bit();
 }
