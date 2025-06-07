@@ -106,7 +106,8 @@ fn test_cpu_nestest() {
     board.reset();
     board.cpu.borrow_mut().set_reg_pc(0xc000);
 
-    for line in testlogs.lines() {
+    for (line_no, line) in testlogs.lines().enumerate() {
+        debug!("--- Line {} ---", line_no + 1);
         let log = NESLog::parse_line(&line.unwrap());
         // 分别输出log和CPU状态
         debug!("Expected: {:?}", Into::<CPUState>::into(log.clone()));

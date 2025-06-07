@@ -372,7 +372,10 @@ fn instruction_jsr(ctx: &mut Context) {
 }
 
 fn instruction_lda(ctx: &mut Context) {
+    debug!("LDA: mode={:?}", ctx.get_op_mode());
+    debug!("LDA: data_address={:#04x}", ctx.data_address);
     let fetched = ctx.read_bus_8bit(ctx.data_address);
+    debug!("LDA: fetched={:#04x}", fetched);
     ctx.reg_a = fetched;
     ctx.set_status_flag(StatusFlag::Zero, ctx.reg_a == 0);
     ctx.set_status_flag(StatusFlag::Negative, get_bit(ctx.reg_a, 7));
@@ -785,7 +788,16 @@ pub struct AddressingModeResult {
     pub pc_increment: u16,
 }
 
+// Addressing mode functions
+// see: https://wiki.nesdev.com/w/index.php/CPU_addressing_modes
 pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
+    let read_bus_16bit_uncross_page = |addr: u16| {
+        let next_addr_high = addr & 0xFF00;
+        let next_addr_low = (addr + 1) & 0xFF;
+        let next_addr = next_addr_high | next_addr_low;
+        (ctx.read_bus_8bit(next_addr) as u16) << 8 | ctx.read_bus_8bit(addr) as u16
+    };
+
     match ctx.get_op_mode() {
         AddressingMode::Immediate => AddressingModeResult {
             address: ctx.reg_pc + 1,
@@ -801,7 +813,7 @@ pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
             }
         }
         AddressingMode::ZeroPageX => {
-            let addr = ctx.read_bus_8bit(ctx.reg_pc + 1) as u16 + ctx.reg_x as u16;
+            let addr = ctx.read_bus_8bit(ctx.reg_pc + 1).wrapping_add(ctx.reg_x) as u16;
             AddressingModeResult {
                 address: addr,
                 page_crossed: false,
@@ -809,7 +821,7 @@ pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
             }
         }
         AddressingMode::ZeroPageY => {
-            let addr = ctx.read_bus_8bit(ctx.reg_pc + 1) as u16 + ctx.reg_y as u16;
+            let addr = ctx.read_bus_8bit(ctx.reg_pc + 1).wrapping_add(ctx.reg_y) as u16;
             AddressingModeResult {
                 address: addr,
                 page_crossed: false,
@@ -827,26 +839,24 @@ pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
         AddressingMode::AbsoluteX => {
             let base_addr = ctx.read_bus_16bit(ctx.reg_pc + 1);
             let addr = base_addr.wrapping_add(ctx.reg_x as u16);
-            let page_crossed = is_page_crossed(base_addr, addr);
             AddressingModeResult {
                 address: addr,
-                page_crossed,
+                page_crossed: is_page_crossed(base_addr, addr),
                 pc_increment: 3,
             }
         }
         AddressingMode::AbsoluteY => {
             let base_addr = ctx.read_bus_16bit(ctx.reg_pc + 1);
             let addr = base_addr.wrapping_add(ctx.reg_y as u16);
-            let page_crossed = is_page_crossed(base_addr, addr);
             AddressingModeResult {
                 address: addr,
-                page_crossed,
+                page_crossed: is_page_crossed(base_addr, addr),
                 pc_increment: 3,
             }
         }
         AddressingMode::IndexedIndirect => {
-            let base_addr = ctx.read_bus_8bit(ctx.reg_pc + 1) as u16 + ctx.reg_x as u16;
-            let addr = ctx.read_bus_16bit(base_addr);
+            let base_addr = ctx.read_bus_8bit(ctx.reg_pc + 1);
+            let addr = read_bus_16bit_uncross_page(base_addr.wrapping_add(ctx.reg_x) as u16);
             AddressingModeResult {
                 address: addr,
                 page_crossed: false,
@@ -854,12 +864,11 @@ pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
             }
         }
         AddressingMode::IndirectIndexed => {
-            let base_addr = ctx.read_bus_8bit(ctx.reg_pc + 1) as u16;
-            let addr = ctx.read_bus_16bit(base_addr).wrapping_add(ctx.reg_y as u16);
-            let page_crossed = is_page_crossed(base_addr, addr);
+            let base_addr = ctx.read_bus_8bit(ctx.reg_pc + 1);
+            let addr = read_bus_16bit_uncross_page(base_addr as u16).wrapping_add(ctx.reg_y as u16);
             AddressingModeResult {
                 address: addr,
-                page_crossed,
+                page_crossed: is_page_crossed(base_addr as u16, addr),
                 pc_increment: 2,
             }
         }
@@ -876,7 +885,7 @@ pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
             let addr = ctx.reg_pc.wrapping_add(2).wrapping_add(offset as u16);
             AddressingModeResult {
                 address: addr,
-                page_crossed: is_page_crossed(ctx.reg_pc, addr),
+                page_crossed: false,
                 pc_increment: 2,
             }
         }
@@ -890,7 +899,7 @@ pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
         }
         AddressingMode::Indirect => {
             let base_addr = ctx.read_bus_16bit(ctx.reg_pc + 1);
-            let addr = ctx.read_bus_16bit(base_addr);
+            let addr = read_bus_16bit_uncross_page(base_addr);
             AddressingModeResult {
                 address: addr,
                 page_crossed: false,

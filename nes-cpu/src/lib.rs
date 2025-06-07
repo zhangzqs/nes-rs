@@ -78,13 +78,13 @@ impl CPU for CPUImpl {
         self.context.data_address = result.address;
         self.context.reg_pc = self.context.reg_pc.wrapping_add(result.pc_increment);
 
-        // if result.page_crossed && op.increase_cycle_when_cross_page {
-        //     debug!(
-        //         "Page crossed during addressing, increasing cycles for instruction: {:?}",
-        //         op.instruction
-        //     );
-        //     self.increase_cycles(1);
-        // }
+        if result.page_crossed && op.increase_cycle_when_cross_page {
+            debug!(
+                "Page crossed during addressing, increasing cycles for instruction: {:?}",
+                op.instruction
+            );
+            self.increase_cycles(1);
+        }
 
         // 执行周期
         debug!(
