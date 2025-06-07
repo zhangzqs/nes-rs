@@ -864,11 +864,11 @@ pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
             }
         }
         AddressingMode::IndirectIndexed => {
-            let base_addr = ctx.read_bus_8bit(ctx.reg_pc + 1);
-            let addr = read_bus_16bit_uncross_page(base_addr as u16).wrapping_add(ctx.reg_y as u16);
+            let base_addr = ctx.read_bus_8bit(ctx.reg_pc + 1) as u16;
+            let addr = read_bus_16bit_uncross_page(base_addr).wrapping_add(ctx.reg_y as u16);
             AddressingModeResult {
                 address: addr,
-                page_crossed: is_page_crossed(base_addr as u16, addr),
+                page_crossed: is_page_crossed(addr, addr.wrapping_sub(ctx.reg_y as u16)),
                 pc_increment: 2,
             }
         }
