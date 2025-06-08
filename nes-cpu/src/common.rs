@@ -88,3 +88,7 @@ pub enum AddressingMode {
     Implied,
     Indirect,
 }
+
+pub fn is_page_crossed(addr1: u16, addr2: u16) -> bool {
+    (addr1 & 0xFF00) != (addr2 & 0xFF00)
+}

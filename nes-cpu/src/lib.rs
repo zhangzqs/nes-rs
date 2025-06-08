@@ -1,8 +1,10 @@
+use addressing::get_data_address;
 use log::debug;
 use nes_base::{BusAdapter, Cpu, CpuState, Interrupt};
-use state::{Context, execute_instruction, execute_interrupt, get_data_address};
+use state::{Context, execute_instruction, execute_interrupt};
 use std::{cell::RefCell, rc::Rc};
 
+mod addressing;
 mod common;
 mod opcode;
 mod state;
