@@ -39,9 +39,9 @@ pub trait APU {
     fn clock(&mut self);
 }
 
-pub struct APUBusAdapter(pub Rc<RefCell<dyn APU>>);
+pub struct APUAdapterForCPUBus(pub Rc<RefCell<dyn APU>>);
 
-impl Reader for APUBusAdapter {
+impl Reader for APUAdapterForCPUBus {
     fn read(&self, addr: u16) -> u8 {
         match addr {
             0x4015 => self.0.borrow().read_reg_status(),
@@ -52,7 +52,7 @@ impl Reader for APUBusAdapter {
     }
 }
 
-impl Writer for APUBusAdapter {
+impl Writer for APUAdapterForCPUBus {
     fn write(&mut self, addr: u16, data: u8) {
         match addr {
             0x4000 => self.0.borrow_mut().write_reg_pulse1_control(data),
@@ -88,7 +88,7 @@ impl Writer for APUBusAdapter {
     }
 }
 
-impl BusAdapter for APUBusAdapter {
+impl BusAdapter for APUAdapterForCPUBus {
     fn address_accept(&self, addr: u16) -> bool {
         return addr >= 0x4000 && addr < 0x4014 || addr == 0x4015;
     }

@@ -17,21 +17,21 @@ pub enum Mirroring {
     FourScreen,
 }
 
-pub struct CartridgeCPUBusAdapter(pub Rc<RefCell<dyn Cartridge>>);
+pub struct CartridgeAdapterForCPUBus(pub Rc<RefCell<dyn Cartridge>>);
 
-impl Reader for CartridgeCPUBusAdapter {
+impl Reader for CartridgeAdapterForCPUBus {
     fn read(&self, addr: u16) -> u8 {
         self.0.borrow().cpu_read(addr)
     }
 }
 
-impl Writer for CartridgeCPUBusAdapter {
+impl Writer for CartridgeAdapterForCPUBus {
     fn write(&mut self, addr: u16, data: u8) {
         self.0.borrow_mut().cpu_write(addr, data);
     }
 }
 
-impl BusAdapter for CartridgeCPUBusAdapter {
+impl BusAdapter for CartridgeAdapterForCPUBus {
     fn address_accept(&self, addr: u16) -> bool {
         return addr >= 0x4020;
     }

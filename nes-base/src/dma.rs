@@ -13,18 +13,18 @@ pub trait DMA {
     }
 }
 
-pub struct DMABusAdapter {
+pub struct DMAAdapterForCPUBus {
     dma: Rc<RefCell<dyn DMA>>,
     cpu: Rc<RefCell<dyn CPU>>,
 }
 
-impl Reader for DMABusAdapter {
+impl Reader for DMAAdapterForCPUBus {
     fn read(&self, addr: u16) -> u8 {
         panic!("DMA read from unsupported address: {:#04X}", addr)
     }
 }
 
-impl Writer for DMABusAdapter {
+impl Writer for DMAAdapterForCPUBus {
     fn write(&mut self, _: u16, data: u8) {
         let source_page = data;
         self.dma.borrow_mut().transfer_page(source_page, 0);
@@ -36,7 +36,7 @@ impl Writer for DMABusAdapter {
     }
 }
 
-impl BusAdapter for DMABusAdapter {
+impl BusAdapter for DMAAdapterForCPUBus {
     fn address_accept(&self, addr: u16) -> bool {
         addr == 0x4014
     }

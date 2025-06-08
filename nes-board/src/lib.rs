@@ -1,8 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
 use nes_base::{
-    APU, APUBusAdapter, Bus, BusAdapter, CPU, Cartridge, CartridgeCPUBusAdapter, Joypad,
-    JoypadBusAdapter, PPU, PPUBusAdapterForCPUBus, RAM, RAMAdapterForCPUBus,
+    APU, APUAdapterForCPUBus, Bus, BusAdapter, CPU, Cartridge, CartridgeAdapterForCPUBus, Joypad,
+    JoypadAdapterForCPUBus, PPU, PPUBusAdapterForCPUBus, RAM, RAMAdapterForCPUBus,
 };
 
 pub struct BoardImpl {
@@ -32,12 +32,12 @@ impl BoardImpl {
         let cpu_bus_devices: [Rc<RefCell<dyn BusAdapter>>; 5] = [
             Rc::new(RefCell::new(RAMAdapterForCPUBus(self.ram.clone()))),
             Rc::new(RefCell::new(PPUBusAdapterForCPUBus(self.ppu.clone()))),
-            Rc::new(RefCell::new(CartridgeCPUBusAdapter(self.cartridge.clone()))),
-            Rc::new(RefCell::new(JoypadBusAdapter {
+            Rc::new(RefCell::new(CartridgeAdapterForCPUBus(self.cartridge.clone()))),
+            Rc::new(RefCell::new(JoypadAdapterForCPUBus {
                 joypad1: self.joypad1.clone(),
                 joypad2: self.joypad2.clone(),
             })),
-            Rc::new(RefCell::new(APUBusAdapter(self.apu.clone()))),
+            Rc::new(RefCell::new(APUAdapterForCPUBus(self.apu.clone()))),
         ];
         for device in cpu_bus_devices {
             self.cpu_bus.borrow_mut().register_device(device);
