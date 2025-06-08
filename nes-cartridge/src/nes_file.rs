@@ -12,21 +12,57 @@ impl BitOperations for u8 {
 
 pub struct NESFile {
     bytes: Vec<u8>,
+    header: NESHeader,
 }
 
-const PRG_BANK_SIZE: u16 = 0x4000;
-const CHR_BANK_SIZE: u16 = 0x2000;
-const TRAINER_SIZE: u16 = 0x0200;
+pub struct NESHeader {
+    /// 文件头标识，必须是 "NES\x1A"
+    pub magic: [u8; 4],
+    /// PRG-ROM banks 的数量，每 16KB 一块
+    pub prg_banks: u8,
+    /// CHR-ROM banks 的数量，每 8KB 一块
+    pub chr_banks: u8,
+    /// 画面映射方式
+    pub mirroring: Mirroring,
+    /// 是否有电池备份，通常用于保存游戏进度
+    pub has_battery_backed: bool,
+    /// 是否有 Trainer ROM，通常是 512 字节
+    pub has_trainer: bool,
+    /// Mapper ID
+    pub mapper_id: u8,
+}
+
+impl From<&[u8; 16]> for NESHeader {
+    fn from(bytes: &[u8; 16]) -> Self {
+        let magic = [bytes[0], bytes[1], bytes[2], bytes[3]];
+        let prg_banks = bytes[4];
+        let chr_banks = bytes[5];
+        let mirroring = if bytes[6].get_bit(0) {
+            Mirroring::Vertical
+        } else {
+            Mirroring::Horizontal
+        };
+        let has_battery_backed = bytes[6].get_bit(1);
+        let has_trainer = bytes[6].get_bit(2);
+        let mapper_id = (bytes[7] >> 4) | (bytes[6] & 0xF0);
+
+        Self {
+            magic,
+            prg_banks,
+            chr_banks,
+            mirroring,
+            has_battery_backed,
+            has_trainer,
+            mapper_id,
+        }
+    }
+}
+
+const PRG_BANK_SIZE: usize = 0x4000;
+const CHR_BANK_SIZE: usize = 0x2000;
+const TRAINER_SIZE: usize = 0x0200;
 
 impl NESFile {
-    pub fn new(bytes: Vec<u8>) -> Self {
-        let reader = Self { bytes };
-        if !reader.is_valid() {
-            panic!("Nes file format error");
-        }
-        reader
-    }
-
     /// 从文件路径加载 NES 文件
     pub fn from_file(path: &str) -> Self {
         let bytes = std::fs::read(path)
@@ -34,64 +70,44 @@ impl NESFile {
         Self::new(bytes)
     }
 
-    /// PRG-ROM banks 的数量，每 16KB 一块
-    pub fn prg_banks(&self) -> u8 {
-        self.bytes[4]
-    }
-
-    /// CHR-ROM banks 的数量，每 8KB 一块
-    pub fn chr_banks(&self) -> u8 {
-        self.bytes[5]
-    }
-
-    /// mirroring mode
-    pub fn mirroring_mode(&self) -> Mirroring {
-        let is_vertical_mirror = self.bytes[6].get_bit(0);
-        let four_screen = self.bytes[6].get_bit(3);
-
-        if four_screen {
-            return Mirroring::FourScreen;
+    pub fn new(bytes: Vec<u8>) -> Self {
+        let header = NESHeader::from(&bytes[0..16].try_into().expect("Invalid NES header length"));
+        if header.magic != [0x4E, 0x45, 0x53, 0x1A] {
+            panic!("Invalid NES file magic number");
         }
-        if is_vertical_mirror {
-            Mirroring::Vertical
-        } else {
-            Mirroring::Horizontal
+        if header.prg_banks == 0 {
+            panic!("NES file must have at least one PRG-ROM bank");
+        }
+        if header.chr_banks == 0 {
+            panic!("NES file must have at least one CHR-ROM bank");
+        }
+        Self {
+            bytes: bytes,
+            header: header,
         }
     }
 
-    /// 检查是否有基于电池的备份
-    pub fn has_battery_backed(&self) -> bool {
-        self.bytes[6].get_bit(1)
-    }
-
-    pub fn has_trainer(&self) -> bool {
-        self.bytes[6].get_bit(2)
-    }
-
-    /// Mapper ID
-    pub fn mapper_id(&self) -> u8 {
-        let lower_mapper_id = self.bytes[6] & 0xf0;
-        let upper_mapper_id = self.bytes[7] & 0xf0;
-        upper_mapper_id | (lower_mapper_id >> 4)
+    pub fn header(&self) -> &NESHeader {
+        &self.header
     }
 
     /// Get PRG-ROM data
     pub fn prg_rom(&self) -> Vec<u8> {
         let start = self.prg_rom_start() as usize;
-        let end = start + (self.prg_banks() as usize * PRG_BANK_SIZE as usize);
+        let end = start + (self.header.prg_banks as usize * PRG_BANK_SIZE as usize);
         self.bytes[start..end].to_vec()
     }
 
     /// Get CHR-ROM data
     pub fn chr_rom(&self) -> Vec<u8> {
         let start = self.chr_rom_start() as usize;
-        let end = start + (self.chr_banks() as usize * CHR_BANK_SIZE as usize);
+        let end = start + (self.header.chr_banks as usize * CHR_BANK_SIZE as usize);
         self.bytes[start..end].to_vec()
     }
 
     /// Get trainer ROM data
     pub fn trainer_rom(&self) -> Vec<u8> {
-        if !self.has_trainer() {
+        if !self.header.has_trainer {
             panic!("Nes file is not support to get trainer rom");
         }
         let start = 0x10;
@@ -100,18 +116,14 @@ impl NESFile {
     }
 
     fn prg_rom_start(&self) -> usize {
-        0x10 + if self.has_trainer() { TRAINER_SIZE } else { 0 } as usize
+        0x10 + if self.header.has_trainer {
+            TRAINER_SIZE
+        } else {
+            0
+        } as usize
     }
 
     fn chr_rom_start(&self) -> usize {
-        self.prg_rom_start() + (self.prg_banks() as usize * PRG_BANK_SIZE as usize)
-    }
-
-    /// 检查文件头是否有效
-    fn is_valid(&self) -> bool {
-        self.bytes[0] == 0x4e
-            && self.bytes[1] == 0x45
-            && self.bytes[2] == 0x53
-            && self.bytes[3] == 0x1a
+        self.prg_rom_start() + self.header.prg_banks as usize * PRG_BANK_SIZE as usize
     }
 }

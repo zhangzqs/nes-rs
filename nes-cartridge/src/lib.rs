@@ -13,11 +13,12 @@ pub struct CartridgeImpl {
 
 impl CartridgeImpl {
     pub fn new(nes: NESFile) -> Self {
-        let mapper_id = nes.mapper_id();
-        let prg_banks = nes.prg_banks();
+        let mapper_id = nes.header().mapper_id;
+        let prg_banks = nes.header().prg_banks;
+        let has_battery_backed = nes.header().has_battery_backed;
         let chr_rom = Rc::new(RefCell::new(nes.chr_rom()));
         let prg_rom = Rc::new(RefCell::new(nes.prg_rom()));
-        let sram: Option<Rc<RefCell<dyn RAM>>> = if nes.has_battery_backed() {
+        let sram: Option<Rc<RefCell<dyn RAM>>> = if has_battery_backed {
             Some(Rc::new(RefCell::new(RAMImpl::new(0x2000))))
         } else {
             None

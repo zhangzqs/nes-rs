@@ -4,7 +4,7 @@ use log::debug;
 use nes_base::{BusAdapter, Interrupt};
 
 use crate::common::{AddressingMode, InstructionEnum};
-use crate::opcode::{Op, get_op};
+use crate::opcode::Op;
 
 // 状态标志位
 #[derive(Debug, Clone, Copy)]
