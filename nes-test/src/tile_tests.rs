@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use image::{ImageBuffer, RgbImage};
-use nes_base::{Cartridge, PatternTablesBusAdapterForPPUBus, Reader};
+use nes_base::{Cartridge, PatternTablesAdapterForPPUBus, Reader};
 
 struct Tile {
     pub data: [u8; 16],
@@ -93,7 +93,7 @@ fn render_pattern_table(tile_reader: &TileReader, filename: &str) {
 fn test_tile_get_pixel() {
     let nes = nes_cartridge::NESFile::from_file("testfiles/Super_mario_brothers.nes");
     let cartridge = Rc::new(RefCell::new(nes_cartridge::CartridgeImpl::new(nes)));
-    let pattern_tables_reader = Rc::new(RefCell::new(PatternTablesBusAdapterForPPUBus(cartridge)));
+    let pattern_tables_reader = Rc::new(RefCell::new(PatternTablesAdapterForPPUBus(cartridge)));
     let tile_reader_1 = TileReader::new(pattern_tables_reader.clone(), 0x0000);
     let tile_reader_2 = TileReader::new(pattern_tables_reader.clone(), 0x1000);
 

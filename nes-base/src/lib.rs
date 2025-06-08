@@ -14,4 +14,7 @@ pub use cpu::{CPU, CPUState, Interrupt};
 pub use dma::DMA;
 pub use joypad::{Joypad, JoypadAdapterForCPUBus};
 pub use memory::{RAM, RAMAdapterForCPUBus};
-pub use ppu::{PPU, PPUBusAdapterForCPUBus, PatternTablesBusAdapterForPPUBus};
+pub use ppu::{
+    MirrorBusAdapterForPPUBus, NameTablesAdapterForPPUBus, PPU, PPUBusAdapterForCPUBus,
+    PalettesTablesAdapterForPPUBus, PatternTablesAdapterForPPUBus,
+};
