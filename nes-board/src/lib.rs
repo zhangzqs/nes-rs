@@ -1,10 +1,10 @@
 use std::{cell::RefCell, rc::Rc};
 
 use nes_base::{
-    ApuAdapterForCpuBus, Bus, BusAdapter, Cartridge, CartridgeAdapterForCPUBus, Cpu, Interrupt,
-    Joypad, JoypadAdapterForCpuBus, MirrorBusAdapterForPpuBus, NameTablesAdapterForPpuBus,
-    PalettesTablesAdapterForPpuBus, PatternTablesAdapterForPpuBus, Ppu, PpuBusAdapterForCpuBus,
-    Ram, RamAdapterForCpuBus,
+    ApuAdapterForCpuBus, Bus, BusAdapter, Cartridge, CartridgeAdapterForCPUBus, Cpu, DmaForCpuBus,
+    Interrupt, Joypad, JoypadAdapterForCpuBus, MirrorBusAdapterForPpuBus,
+    NameTablesAdapterForPpuBus, PalettesTablesAdapterForPpuBus, PatternTablesAdapterForPpuBus, Ppu,
+    PpuBusAdapterForCpuBus, Ram, RamAdapterForCpuBus,
 };
 
 pub struct BoardImpl {
@@ -65,6 +65,10 @@ impl BoardImpl {
                 joypad2: self.joypad2.clone(),
             })),
             Rc::new(RefCell::new(ApuAdapterForCpuBus(self.apu.clone()))),
+            Rc::new(RefCell::new(DmaForCpuBus {
+                cpu_bus: self.cpu_bus.clone(),
+                cpu: self.cpu.clone(),
+            })),
         ];
         for device in cpu_bus_devices {
             self.cpu_bus.borrow_mut().register_device(device);

@@ -1,7 +1,0 @@
-[package]
-name = "nes-dma"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-nes-base = { path = "../nes-base" }
