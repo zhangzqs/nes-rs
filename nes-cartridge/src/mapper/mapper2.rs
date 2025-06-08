@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use nes_base::{Cartridge, RAM};
+use nes_base::{Cartridge, Ram};
 
 pub struct Mapper2 {
     prg_banks: u8,
@@ -8,7 +8,7 @@ pub struct Mapper2 {
     prg_bank2: u8,
     chr_rom: Rc<RefCell<Vec<u8>>>,
     prg_rom: Rc<RefCell<Vec<u8>>>,
-    sram: Option<Rc<RefCell<dyn RAM>>>,
+    sram: Option<Rc<RefCell<dyn Ram>>>,
 }
 
 impl Mapper2 {
@@ -16,7 +16,7 @@ impl Mapper2 {
         prg_banks: u8,
         chr_rom: Rc<RefCell<Vec<u8>>>,
         prg_rom: Rc<RefCell<Vec<u8>>>,
-        sram: Option<Rc<RefCell<dyn RAM>>>,
+        sram: Option<Rc<RefCell<dyn Ram>>>,
     ) -> Self {
         let prg_bank1 = 0;
         let prg_bank2 = prg_banks - 1;

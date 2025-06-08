@@ -1,5 +1,5 @@
-use nes_base::{Cartridge, RAM};
-use nes_ram::RAMImpl;
+use nes_base::{Cartridge, Ram};
+use nes_ram::RamImpl;
 use std::{cell::RefCell, rc::Rc};
 
 mod mapper;
@@ -18,8 +18,8 @@ impl CartridgeImpl {
         let has_battery_backed = nes.header().has_battery_backed;
         let chr_rom = Rc::new(RefCell::new(nes.chr_rom()));
         let prg_rom = Rc::new(RefCell::new(nes.prg_rom()));
-        let sram: Option<Rc<RefCell<dyn RAM>>> = if has_battery_backed {
-            Some(Rc::new(RefCell::new(RAMImpl::new(0x2000))))
+        let sram: Option<Rc<RefCell<dyn Ram>>> = if has_battery_backed {
+            Some(Rc::new(RefCell::new(RamImpl::new(0x2000))))
         } else {
             None
         };

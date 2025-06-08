@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{BusAdapter, Reader, Writer};
 
-pub trait APU {
+pub trait Apu {
     // Pulse1 registers
     fn write_reg_pulse1_control(&mut self, value: u8);
     fn write_reg_pulse1_sweep(&mut self, value: u8);
@@ -39,9 +39,9 @@ pub trait APU {
     fn clock(&mut self);
 }
 
-pub struct APUAdapterForCPUBus(pub Rc<RefCell<dyn APU>>);
+pub struct ApuAdapterForCpuBus(pub Rc<RefCell<dyn Apu>>);
 
-impl Reader for APUAdapterForCPUBus {
+impl Reader for ApuAdapterForCpuBus {
     fn read(&self, addr: u16) -> u8 {
         match addr {
             0x4015 => self.0.borrow().read_reg_status(),
@@ -52,7 +52,7 @@ impl Reader for APUAdapterForCPUBus {
     }
 }
 
-impl Writer for APUAdapterForCPUBus {
+impl Writer for ApuAdapterForCpuBus {
     fn write(&mut self, addr: u16, data: u8) {
         match addr {
             0x4000 => self.0.borrow_mut().write_reg_pulse1_control(data),
@@ -88,7 +88,7 @@ impl Writer for APUAdapterForCPUBus {
     }
 }
 
-impl BusAdapter for APUAdapterForCPUBus {
+impl BusAdapter for ApuAdapterForCpuBus {
     fn address_accept(&self, addr: u16) -> bool {
         return addr >= 0x4000 && addr < 0x4014 || addr == 0x4015;
     }

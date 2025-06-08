@@ -1,13 +1,13 @@
 use std::{cell::RefCell, rc::Rc};
 
-use nes_base::{DMA, Reader, Writer};
+use nes_base::{Dma, Reader, Writer};
 
-pub struct DMAImpl {
+pub struct DmaImpl {
     source: Rc<RefCell<dyn Reader>>,
     dest: Rc<RefCell<dyn Writer>>,
 }
 
-impl DMA for DMAImpl {
+impl Dma for DmaImpl {
     fn transfer(&mut self, source_addr: u16, dest_addr: u16, length: usize) {
         if length > 256 {
             panic!("DMA transfer length cannot exceed 256 bytes");

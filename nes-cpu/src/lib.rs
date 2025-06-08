@@ -1,5 +1,5 @@
 use log::debug;
-use nes_base::{BusAdapter, CPU, CPUState, Interrupt};
+use nes_base::{BusAdapter, Cpu, CpuState, Interrupt};
 use state::{Context, execute_instruction, execute_interrupt, get_data_address};
 use std::{cell::RefCell, rc::Rc};
 
@@ -7,13 +7,13 @@ mod common;
 mod opcode;
 mod state;
 
-pub struct CPUImpl {
+pub struct CpuImpl {
     context: Context,
     interrupt: Option<Interrupt>,
     total_cycles: u32,
 }
 
-impl CPUImpl {
+impl CpuImpl {
     pub fn new() -> Self {
         Self {
             context: Context::new(),
@@ -23,7 +23,7 @@ impl CPUImpl {
     }
 }
 
-impl CPU for CPUImpl {
+impl Cpu for CpuImpl {
     fn set_reg_pc(&mut self, pc: u16) {
         self.context.reg_pc = pc;
         self.context.remaining_cycles = 0; // 重置剩余周期
@@ -111,8 +111,8 @@ impl CPU for CPUImpl {
         );
     }
 
-    fn dump_state(&self) -> CPUState {
-        CPUState {
+    fn dump_state(&self) -> CpuState {
+        CpuState {
             total_cycles: self.total_cycles,
             remaining_cycles: self.context.remaining_cycles,
             reg_a: self.context.reg_a,

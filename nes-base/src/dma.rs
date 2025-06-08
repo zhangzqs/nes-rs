@@ -1,8 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{BusAdapter, CPU, Reader, Writer};
+use crate::{BusAdapter, Cpu, Reader, Writer};
 
-pub trait DMA {
+pub trait Dma {
     fn transfer(&mut self, source_addr: u16, dest_addr: u16, length: usize);
 
     /// Transfers a full page (256 bytes) from source to destination.
@@ -13,18 +13,18 @@ pub trait DMA {
     }
 }
 
-pub struct DMAAdapterForCPUBus {
-    dma: Rc<RefCell<dyn DMA>>,
-    cpu: Rc<RefCell<dyn CPU>>,
+pub struct DmaAdapterForCpuBus {
+    dma: Rc<RefCell<dyn Dma>>,
+    cpu: Rc<RefCell<dyn Cpu>>,
 }
 
-impl Reader for DMAAdapterForCPUBus {
+impl Reader for DmaAdapterForCpuBus {
     fn read(&self, addr: u16) -> u8 {
         panic!("DMA read from unsupported address: {:#04X}", addr)
     }
 }
 
-impl Writer for DMAAdapterForCPUBus {
+impl Writer for DmaAdapterForCpuBus {
     fn write(&mut self, _: u16, data: u8) {
         let source_page = data;
         self.dma.borrow_mut().transfer_page(source_page, 0);
@@ -36,7 +36,7 @@ impl Writer for DMAAdapterForCPUBus {
     }
 }
 
-impl BusAdapter for DMAAdapterForCPUBus {
+impl BusAdapter for DmaAdapterForCpuBus {
     fn address_accept(&self, addr: u16) -> bool {
         addr == 0x4014
     }

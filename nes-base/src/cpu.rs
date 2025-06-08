@@ -10,7 +10,7 @@ pub enum Interrupt {
 }
 
 #[derive(Debug)]
-pub struct CPUState {
+pub struct CpuState {
     pub total_cycles: u32,
     pub remaining_cycles: u32,
     pub reg_a: u8,
@@ -18,11 +18,11 @@ pub struct CPUState {
     pub reg_y: u8,
     pub reg_sp: u8,
     pub reg_pc: u16,
-    pub reg_status: CPUStatusFlags,
+    pub reg_status: CpuStatusFlags,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct CPUStatusFlags {
+pub struct CpuStatusFlags {
     pub carry: bool,
     pub zero: bool,
     pub interrupt_disable: bool,
@@ -33,7 +33,7 @@ pub struct CPUStatusFlags {
     pub negative: bool,
 }
 
-impl From<u8> for CPUStatusFlags {
+impl From<u8> for CpuStatusFlags {
     fn from(value: u8) -> Self {
         Self {
             carry: value & 0b0000_0001 != 0,
@@ -48,7 +48,7 @@ impl From<u8> for CPUStatusFlags {
     }
 }
 
-impl Into<u8> for CPUStatusFlags {
+impl Into<u8> for CpuStatusFlags {
     fn into(self) -> u8 {
         (self.carry as u8)
             | ((self.zero as u8) << 1)
@@ -61,11 +61,11 @@ impl Into<u8> for CPUStatusFlags {
     }
 }
 
-pub trait CPU {
+pub trait Cpu {
     fn set_reg_pc(&mut self, pc: u16);
     fn reset(&mut self);
     fn attach_bus(&mut self, bus: Rc<RefCell<dyn BusAdapter>>);
-    fn dump_state(&self) -> CPUState;
+    fn dump_state(&self) -> CpuState;
     fn increase_cycles(&mut self, cycles: u32);
     fn send_interrupt(&mut self, interrupt: Interrupt);
     fn clock(&mut self);

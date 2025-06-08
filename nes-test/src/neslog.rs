@@ -5,7 +5,7 @@ use std::{
 };
 
 use log::debug;
-use nes_base::{CPUState, Reader};
+use nes_base::{CpuState, Reader};
 use regex::Regex;
 
 #[derive(Debug, Clone)]
@@ -68,9 +68,9 @@ impl NESLog {
     }
 }
 
-impl Into<CPUState> for NESLog {
-    fn into(self) -> CPUState {
-        CPUState {
+impl Into<CpuState> for NESLog {
+    fn into(self) -> CpuState {
+        CpuState {
             total_cycles: self.cpu_cycles,
             remaining_cycles: 0, // Remaining cycles are not logged in NESLog
             reg_a: self.reg_a,
@@ -83,7 +83,7 @@ impl Into<CPUState> for NESLog {
     }
 }
 
-pub fn assert_cpu_state(bus: Rc<RefCell<dyn Reader>>, expect: &NESLog, actual: &CPUState) {
+pub fn assert_cpu_state(bus: Rc<RefCell<dyn Reader>>, expect: &NESLog, actual: &CpuState) {
     assert_eq!(expect.reg_pc, actual.reg_pc, "PC mismatch");
 
     assert_eq!(

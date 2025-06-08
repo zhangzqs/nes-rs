@@ -18,11 +18,11 @@ pub struct OamSprite {
 }
 
 /// OAM（对象属性内存），共256字节，64个精灵，每个精灵4字节
-pub struct OAM {
+pub struct Oam {
     pub data: [u8; 256],
 }
 
-impl OAM {
+impl Oam {
     pub fn new() -> Self {
         Self { data: [0; 256] }
     }

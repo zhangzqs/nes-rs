@@ -9,12 +9,12 @@ pub trait Joypad {
     fn read_reg_key_state(&self) -> u8;
 }
 
-pub struct JoypadAdapterForCPUBus {
+pub struct JoypadAdapterForCpuBus {
     pub joypad1: Option<Rc<RefCell<dyn Joypad>>>,
     pub joypad2: Option<Rc<RefCell<dyn Joypad>>>,
 }
 
-impl Reader for JoypadAdapterForCPUBus {
+impl Reader for JoypadAdapterForCpuBus {
     fn read(&self, addr: u16) -> u8 {
         match addr {
             0x4016 => {
@@ -36,7 +36,7 @@ impl Reader for JoypadAdapterForCPUBus {
     }
 }
 
-impl Writer for JoypadAdapterForCPUBus {
+impl Writer for JoypadAdapterForCpuBus {
     fn write(&mut self, addr: u16, data: u8) {
         match addr {
             0x4016 => {
@@ -54,7 +54,7 @@ impl Writer for JoypadAdapterForCPUBus {
     }
 }
 
-impl BusAdapter for JoypadAdapterForCPUBus {
+impl BusAdapter for JoypadAdapterForCpuBus {
     fn address_accept(&self, addr: u16) -> bool {
         addr == 0x4016 || addr == 0x4017
     }

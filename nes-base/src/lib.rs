@@ -7,14 +7,14 @@ mod joypad;
 mod memory;
 mod ppu;
 
-pub use apu::{APU, APUAdapterForCPUBus};
+pub use apu::{Apu, ApuAdapterForCpuBus};
 pub use bus::{Bus, BusAdapter, Reader, Writer};
 pub use cartridge::{Cartridge, CartridgeAdapterForCPUBus, Mirroring};
-pub use cpu::{CPU, CPUState, Interrupt};
-pub use dma::DMA;
-pub use joypad::{Joypad, JoypadAdapterForCPUBus};
-pub use memory::{RAM, RAMAdapterForCPUBus};
+pub use cpu::{Cpu, CpuState, Interrupt};
+pub use dma::Dma;
+pub use joypad::{Joypad, JoypadAdapterForCpuBus};
+pub use memory::{Ram, RamAdapterForCpuBus};
 pub use ppu::{
-    MirrorBusAdapterForPPUBus, NameTablesAdapterForPPUBus, PPU, PPUBusAdapterForCPUBus,
-    PalettesTablesAdapterForPPUBus, PatternTablesAdapterForPPUBus,
+    MirrorBusAdapterForPpuBus, NameTablesAdapterForPpuBus, PalettesTablesAdapterForPpuBus,
+    PatternTablesAdapterForPpuBus, Ppu, PpuBusAdapterForCpuBus,
 };

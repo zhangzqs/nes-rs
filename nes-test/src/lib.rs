@@ -1,9 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
-use nes_base::{APU, PPU};
+use nes_base::{Apu, Ppu};
 use nes_board::BoardImpl;
 use nes_bus::BusImpl;
-use nes_cpu::CPUImpl;
+use nes_cpu::CpuImpl;
 
 mod neslog;
 
@@ -15,7 +15,7 @@ mod tile_tests;
 
 struct MockPPU;
 
-impl PPU for MockPPU {
+impl Ppu for MockPPU {
     fn write_reg_control(&mut self, _value: u8) {}
 
     fn write_reg_mask(&mut self, _value: u8) {}
@@ -51,7 +51,7 @@ impl PPU for MockPPU {
 
 struct MockAPU;
 
-impl APU for MockAPU {
+impl Apu for MockAPU {
     fn write_reg_pulse1_control(&mut self, _value: u8) {}
 
     fn write_reg_pulse1_sweep(&mut self, _value: u8) {}
@@ -107,10 +107,10 @@ fn new_board() -> BoardImpl {
         joypad2: None,
         cpu_bus: Rc::new(RefCell::new(BusImpl::new())),
         ppu_bus: Rc::new(RefCell::new(BusImpl::new())),
-        cpu: Rc::new(RefCell::new(CPUImpl::new())),
+        cpu: Rc::new(RefCell::new(CpuImpl::new())),
         ppu: Rc::new(RefCell::new(MockPPU)),
         apu: Rc::new(RefCell::new(MockAPU)),
-        ram: Rc::new(RefCell::new(nes_ram::RAMImpl::new(0x800))),
+        ram: Rc::new(RefCell::new(nes_ram::RamImpl::new(0x800))),
         cartridge: Rc::new(RefCell::new(cartridge)),
     }
     .init();

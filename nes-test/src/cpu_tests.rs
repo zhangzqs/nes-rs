@@ -1,5 +1,5 @@
 use log::debug;
-use nes_base::CPUState;
+use nes_base::CpuState;
 
 use crate::neslog::{NESLog, assert_cpu_state};
 use std::io::BufRead;
@@ -110,7 +110,7 @@ fn test_cpu_nestest() {
         debug!("--- Line {} ---", line_no + 1);
         let log = NESLog::parse_line(&line.unwrap());
         // 分别输出log和CPU状态
-        debug!("Expected: {:?}", Into::<CPUState>::into(log.clone()));
+        debug!("Expected: {:?}", Into::<CpuState>::into(log.clone()));
         debug!("Actual:   {:?}", board.cpu.borrow().dump_state());
         assert_cpu_state(
             board.cpu_bus.clone(),
