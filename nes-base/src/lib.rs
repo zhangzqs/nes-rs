@@ -13,5 +13,5 @@ pub use cartridge::{Cartridge, CartridgeCPUBusAdapter, Mirroring};
 pub use cpu::{CPU, CPUState, Interrupt};
 pub use dma::DMA;
 pub use joypad::{Joypad, JoypadBusAdapter};
-pub use memory::{RAM, RAMBusAdapter};
+pub use memory::{RAM, RAMAdapterForCPUBus};
 pub use ppu::{PPU, PPUBusAdapterForCPUBus, PatternTablesBusAdapterForPPUBus};

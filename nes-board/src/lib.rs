@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use nes_base::{
     APU, APUBusAdapter, Bus, BusAdapter, CPU, Cartridge, CartridgeCPUBusAdapter, Joypad,
-    JoypadBusAdapter, PPU, PPUBusAdapterForCPUBus, RAM, RAMBusAdapter,
+    JoypadBusAdapter, PPU, PPUBusAdapterForCPUBus, RAM, RAMAdapterForCPUBus,
 };
 
 pub struct BoardImpl {
@@ -30,7 +30,7 @@ impl BoardImpl {
         self.ppu.borrow_mut().attach_bus(self.ppu_bus.clone()); // PPU 连接到 PPU 总线上
 
         let cpu_bus_devices: [Rc<RefCell<dyn BusAdapter>>; 5] = [
-            Rc::new(RefCell::new(RAMBusAdapter(self.ram.clone()))),
+            Rc::new(RefCell::new(RAMAdapterForCPUBus(self.ram.clone()))),
             Rc::new(RefCell::new(PPUBusAdapterForCPUBus(self.ppu.clone()))),
             Rc::new(RefCell::new(CartridgeCPUBusAdapter(self.cartridge.clone()))),
             Rc::new(RefCell::new(JoypadBusAdapter {

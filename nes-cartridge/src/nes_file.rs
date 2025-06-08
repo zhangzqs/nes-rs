@@ -37,7 +37,9 @@ impl From<&[u8; 16]> for NESHeader {
         let magic = [bytes[0], bytes[1], bytes[2], bytes[3]];
         let prg_banks = bytes[4];
         let chr_banks = bytes[5];
-        let mirroring = if bytes[6].get_bit(0) {
+        let mirroring = if bytes[6].get_bit(3) {
+            Mirroring::FourScreen
+        } else if bytes[6].get_bit(0) {
             Mirroring::Vertical
         } else {
             Mirroring::Horizontal

@@ -13,6 +13,7 @@ pub trait Cartridge {
 pub enum Mirroring {
     Horizontal,
     Vertical,
+    SingleScreen,
     FourScreen,
 }
 

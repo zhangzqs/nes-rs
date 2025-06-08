@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{BusAdapter, Cartridge, Reader, Writer};
+use crate::{Bus, BusAdapter, Cartridge, Mirroring, RAM, Reader, Writer};
 
 pub trait PPU {
     fn write_reg_control(&mut self, value: u8);
@@ -60,6 +60,7 @@ impl BusAdapter for PPUBusAdapterForCPUBus {
     }
 }
 
+/// 游戏卡带中的图案表适配器，用于 PPU 总线
 pub struct PatternTablesBusAdapterForPPUBus(pub Rc<RefCell<dyn Cartridge>>);
 
 impl Reader for PatternTablesBusAdapterForPPUBus {
@@ -77,5 +78,33 @@ impl Writer for PatternTablesBusAdapterForPPUBus {
 impl BusAdapter for PatternTablesBusAdapterForPPUBus {
     fn address_accept(&self, addr: u16) -> bool {
         return addr < 0x2000;
+    }
+}
+
+/// 名称表适配器，读取挂载在PPU总线上的VRAM中的名称表数据
+pub struct NameTablesForPPUBus {
+    pub vram: Rc<RefCell<dyn RAM>>,
+    pub mirroring: Mirroring,
+}
+
+impl NameTablesForPPUBus {
+    fn mirror_address(&self, addr: u16) -> u16 {
+        const MIRROR_LOOK_UP: [[u8; 4]; 4] = [
+            [0, 0, 1, 1], //horizontal
+            [0, 1, 0, 1], //vertical
+            [0, 0, 0, 0], //singleScreen
+            [1, 1, 1, 1], //fourScreen
+        ];
+        let mode = match self.mirroring {
+            Mirroring::Horizontal => 0,
+            Mirroring::Vertical => 1,
+            Mirroring::SingleScreen => 2,
+            Mirroring::FourScreen => 3,
+        };
+        let addr = (addr - 0x2000) % 0x1000;
+        let bank = (addr / 0x400) as usize;
+        let offset = (addr % 0x400) as usize;
+        let mirrored_bank = MIRROR_LOOK_UP[mode][bank];
+        0x2000 + mirrored_bank as u16 * 0x400 + offset as u16
     }
 }
