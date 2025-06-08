@@ -6,6 +6,12 @@ pub struct BusImpl {
     devices: Vec<Rc<RefCell<dyn BusAdapter>>>,
 }
 
+impl Default for BusImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BusImpl {
     pub fn new() -> Self {
         BusImpl {

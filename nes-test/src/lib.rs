@@ -102,7 +102,8 @@ impl Apu for MockAPU {
 fn new_board() -> BoardImpl {
     let nes = nes_cartridge::NESFile::from_file("testfiles/nestest.nes");
     let cartridge = nes_cartridge::CartridgeImpl::new(nes);
-    let board = BoardImpl {
+    
+    BoardImpl {
         joypad1: None,
         joypad2: None,
         cpu_bus: Rc::new(RefCell::new(BusImpl::new())),
@@ -111,8 +112,9 @@ fn new_board() -> BoardImpl {
         ppu: Rc::new(RefCell::new(MockPPU)),
         apu: Rc::new(RefCell::new(MockAPU)),
         ram: Rc::new(RefCell::new(nes_ram::RamImpl::new(0x800))),
+        ppu_name_tables_ram: Rc::new(RefCell::new(nes_ram::RamImpl::new(0x1000))),
+        ppu_palettes_tables_ram: Rc::new(RefCell::new(nes_ram::RamImpl::new(0x20))),
         cartridge: Rc::new(RefCell::new(cartridge)),
     }
-    .init();
-    board
+    .init()
 }

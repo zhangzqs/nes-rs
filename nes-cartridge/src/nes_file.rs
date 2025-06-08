@@ -84,8 +84,8 @@ impl NESFile {
             panic!("NES file must have at least one CHR-ROM bank");
         }
         Self {
-            bytes: bytes,
-            header: header,
+            bytes,
+            header,
         }
     }
 
@@ -95,15 +95,15 @@ impl NESFile {
 
     /// Get PRG-ROM data
     pub fn prg_rom(&self) -> Vec<u8> {
-        let start = self.prg_rom_start() as usize;
-        let end = start + (self.header.prg_banks as usize * PRG_BANK_SIZE as usize);
+        let start = self.prg_rom_start();
+        let end = start + (self.header.prg_banks as usize * PRG_BANK_SIZE);
         self.bytes[start..end].to_vec()
     }
 
     /// Get CHR-ROM data
     pub fn chr_rom(&self) -> Vec<u8> {
-        let start = self.chr_rom_start() as usize;
-        let end = start + (self.header.chr_banks as usize * CHR_BANK_SIZE as usize);
+        let start = self.chr_rom_start();
+        let end = start + (self.header.chr_banks as usize * CHR_BANK_SIZE);
         self.bytes[start..end].to_vec()
     }
 
@@ -113,7 +113,7 @@ impl NESFile {
             panic!("Nes file is not support to get trainer rom");
         }
         let start = 0x10;
-        let end = start + TRAINER_SIZE as usize;
+        let end = start + TRAINER_SIZE;
         self.bytes[start..end].to_vec()
     }
 
@@ -122,10 +122,10 @@ impl NESFile {
             TRAINER_SIZE
         } else {
             0
-        } as usize
+        }
     }
 
     fn chr_rom_start(&self) -> usize {
-        self.prg_rom_start() + self.header.prg_banks as usize * PRG_BANK_SIZE as usize
+        self.prg_rom_start() + self.header.prg_banks as usize * PRG_BANK_SIZE
     }
 }

@@ -84,13 +84,13 @@ fn test_cpu_simple_flags() {
     assert_eq!(board.cpu_bus.borrow().read(0x30), 0xff);
     run_once();
     assert_eq!(board.cpu.borrow().dump_state().reg_a, 0x01);
-    assert_eq!(board.cpu.borrow().dump_state().reg_status.carry, false);
+    assert!(!board.cpu.borrow().dump_state().reg_status.carry);
     run_once();
     assert_eq!(board.cpu.borrow().dump_state().reg_a, 0x00);
-    assert_eq!(board.cpu.borrow().dump_state().reg_status.carry, true);
+    assert!(board.cpu.borrow().dump_state().reg_status.carry);
     run_once();
     assert_eq!(board.cpu.borrow().dump_state().reg_a, 0x01);
-    assert_eq!(board.cpu.borrow().dump_state().reg_status.carry, true);
+    assert!(board.cpu.borrow().dump_state().reg_status.carry);
 }
 
 fn init() {

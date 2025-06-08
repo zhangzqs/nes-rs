@@ -7,6 +7,7 @@ pub trait Cartridge {
     fn cpu_write(&mut self, addr: u16, value: u8);
     fn ppu_read(&self, addr: u16) -> u8;
     fn ppu_write(&mut self, addr: u16, value: u8);
+    fn mirroring(&self) -> Mirroring;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -33,6 +34,6 @@ impl Writer for CartridgeAdapterForCPUBus {
 
 impl BusAdapter for CartridgeAdapterForCPUBus {
     fn address_accept(&self, addr: u16) -> bool {
-        return addr >= 0x4020;
+        addr >= 0x4020
     }
 }

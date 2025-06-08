@@ -1,6 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
-use nes_base::{Cartridge, Ram};
+use nes_base::Ram;
+
+use crate::mapper::Mapper;
 
 pub struct Mapper2 {
     prg_banks: u8,
@@ -50,12 +52,12 @@ impl Mapper2 {
             0x8000..0xC000 => {
                 // PRG ROM Bank 1
                 let prg_rom = self.prg_rom.borrow();
-                prg_rom[(self.prg_bank1 as usize * 0x4000 + (addr as usize - 0xC000)) as usize]
+                prg_rom[self.prg_bank1 as usize * 0x4000 + (addr as usize - 0xC000)]
             }
             0xC000.. => {
                 // PRG ROM Bank 2
                 let prg_rom = self.prg_rom.borrow();
-                prg_rom[(self.prg_bank2 as usize * 0x4000 + (addr as usize - 0x8000)) as usize]
+                prg_rom[self.prg_bank2 as usize * 0x4000 + (addr as usize - 0x8000)]
             }
             _ => panic!("Address out of range: {}", addr),
         }
@@ -84,7 +86,7 @@ impl Mapper2 {
     }
 }
 
-impl Cartridge for Mapper2 {
+impl Mapper for Mapper2 {
     fn cpu_read(&self, addr: u16) -> u8 {
         self.read(addr)
     }

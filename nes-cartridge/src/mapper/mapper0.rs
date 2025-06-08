@@ -1,6 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
-use nes_base::{Cartridge, Ram};
+use nes_base::Ram;
+
+use crate::mapper::Mapper;
 
 pub struct Mapper0 {
     prg_banks: u8,
@@ -90,7 +92,7 @@ impl Mapper0 {
     }
 }
 
-impl Cartridge for Mapper0 {
+impl Mapper for Mapper0 {
     fn cpu_read(&self, addr: u16) -> u8 {
         self.read(addr)
     }

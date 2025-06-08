@@ -287,7 +287,7 @@ impl OpcodeManager {
 }
 
 // 全局单例的OpcodeManager
-static OPCODE_MANAGER: LazyLock<OpcodeManager> = LazyLock::new(|| OpcodeManager::new());
+static OPCODE_MANAGER: LazyLock<OpcodeManager> = LazyLock::new(OpcodeManager::new);
 
 pub fn get_op(opcode: u8) -> Op {
     OPCODE_MANAGER.get_op(opcode)

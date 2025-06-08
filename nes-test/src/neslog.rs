@@ -1,5 +1,5 @@
 use std::{
-    cell::{OnceCell, RefCell},
+    cell::RefCell,
     rc::Rc,
     sync::OnceLock,
 };
@@ -68,17 +68,17 @@ impl NESLog {
     }
 }
 
-impl Into<CpuState> for NESLog {
-    fn into(self) -> CpuState {
+impl From<NESLog> for CpuState {
+    fn from(val: NESLog) -> Self {
         CpuState {
-            total_cycles: self.cpu_cycles,
+            total_cycles: val.cpu_cycles,
             remaining_cycles: 0, // Remaining cycles are not logged in NESLog
-            reg_a: self.reg_a,
-            reg_x: self.reg_x,
-            reg_y: self.reg_y,
-            reg_sp: self.reg_sp,
-            reg_pc: self.reg_pc,
-            reg_status: self.reg_status.into(),
+            reg_a: val.reg_a,
+            reg_x: val.reg_x,
+            reg_y: val.reg_y,
+            reg_sp: val.reg_sp,
+            reg_pc: val.reg_pc,
+            reg_status: val.reg_status.into(),
         }
     }
 }

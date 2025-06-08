@@ -48,16 +48,16 @@ impl From<u8> for CpuStatusFlags {
     }
 }
 
-impl Into<u8> for CpuStatusFlags {
-    fn into(self) -> u8 {
-        (self.carry as u8)
-            | ((self.zero as u8) << 1)
-            | ((self.interrupt_disable as u8) << 2)
-            | ((self.decimal_mode as u8) << 3)
-            | ((self.break_command as u8) << 4)
-            | ((self.unused as u8) << 5)
-            | ((self.overflow as u8) << 6)
-            | ((self.negative as u8) << 7)
+impl From<CpuStatusFlags> for u8 {
+    fn from(val: CpuStatusFlags) -> Self {
+        (val.carry as u8)
+            | ((val.zero as u8) << 1)
+            | ((val.interrupt_disable as u8) << 2)
+            | ((val.decimal_mode as u8) << 3)
+            | ((val.break_command as u8) << 4)
+            | ((val.unused as u8) << 5)
+            | ((val.overflow as u8) << 6)
+            | ((val.negative as u8) << 7)
     }
 }
 

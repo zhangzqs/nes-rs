@@ -1,3 +1,3 @@
 mod framebuffer;
-mod palettes;
 mod oam;
+mod palettes;

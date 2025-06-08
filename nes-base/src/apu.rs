@@ -90,6 +90,6 @@ impl Writer for ApuAdapterForCpuBus {
 
 impl BusAdapter for ApuAdapterForCpuBus {
     fn address_accept(&self, addr: u16) -> bool {
-        return addr >= 0x4000 && addr < 0x4014 || addr == 0x4015;
+        (0x4000..0x4014).contains(&addr) || addr == 0x4015
     }
 }

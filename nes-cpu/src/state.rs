@@ -150,7 +150,7 @@ impl Context {
 
     // 状态寄存器操作
     fn get_status_flag(&self, flag: StatusFlag) -> bool {
-        return get_status_flag(self.reg_status, flag);
+        get_status_flag(self.reg_status, flag)
     }
 
     fn set_status_flag(&mut self, flag: StatusFlag, value: bool) {
@@ -201,7 +201,7 @@ fn instruction_asl(ctx: &mut Context) {
         ctx.read_bus_8bit(ctx.data_address)
     };
     ctx.set_status_flag(StatusFlag::Carry, get_bit(tmp, 7));
-    let tmp = (tmp << 1) & 0xFF;
+    let tmp = tmp << 1;
     if ctx.get_op_mode() == AddressingMode::Accumulator {
         ctx.reg_a = tmp;
     } else {
@@ -461,7 +461,7 @@ fn instruction_rol(ctx: &mut Context) {
     ctx.set_status_flag(StatusFlag::Carry, get_bit(tmp, 7));
     let tmp = (tmp << 1) | old_carry as u8;
     if ctx.get_op_mode() == AddressingMode::Accumulator {
-        ctx.reg_a = tmp & 0xFF;
+        ctx.reg_a = tmp;
         ctx.set_status_flag(StatusFlag::Zero, ctx.reg_a == 0);
     } else {
         ctx.write_bus_8bit(ctx.data_address, tmp);

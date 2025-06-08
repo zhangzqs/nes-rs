@@ -13,6 +13,12 @@ pub struct CpuImpl {
     total_cycles: u32,
 }
 
+impl Default for CpuImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuImpl {
     pub fn new() -> Self {
         Self {

@@ -1,4 +1,4 @@
-use nes_base::{Cartridge, Ram};
+use nes_base::{Cartridge, Mirroring, Ram};
 use nes_ram::RamImpl;
 use std::{cell::RefCell, rc::Rc};
 
@@ -7,8 +7,11 @@ mod nes_file;
 
 pub use nes_file::NESFile;
 
+use crate::mapper::Mapper;
+
 pub struct CartridgeImpl {
-    mapper: Box<dyn Cartridge>,
+    mapper: Box<dyn Mapper>,
+    mirroring: Mirroring,
 }
 
 impl CartridgeImpl {
@@ -25,6 +28,7 @@ impl CartridgeImpl {
         };
         CartridgeImpl {
             mapper: mapper::get_mapper_by_id(mapper_id, prg_banks, chr_rom, prg_rom, sram),
+            mirroring: nes.header().mirroring,
         }
     }
 }
@@ -44,5 +48,9 @@ impl Cartridge for CartridgeImpl {
 
     fn ppu_write(&mut self, addr: u16, value: u8) {
         self.mapper.ppu_write(addr, value);
+    }
+
+    fn mirroring(&self) -> Mirroring {
+        self.mirroring
     }
 }

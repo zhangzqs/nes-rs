@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use image::{ImageBuffer, RgbImage};
-use nes_base::{Cartridge, PatternTablesAdapterForPpuBus, Reader};
+use nes_base::{PatternTablesAdapterForPpuBus, Reader};
 
 struct Tile {
     pub data: [u8; 16],

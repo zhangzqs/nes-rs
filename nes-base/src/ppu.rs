@@ -57,7 +57,7 @@ impl Writer for PpuBusAdapterForCpuBus {
 
 impl BusAdapter for PpuBusAdapterForCpuBus {
     fn address_accept(&self, addr: u16) -> bool {
-        return addr >= 0x2000 && addr < 0x4000;
+        (0x2000..0x4000).contains(&addr)
     }
 }
 
@@ -79,7 +79,7 @@ impl Writer for PatternTablesAdapterForPpuBus {
 
 impl BusAdapter for PatternTablesAdapterForPpuBus {
     fn address_accept(&self, addr: u16) -> bool {
-        return addr < 0x2000;
+        addr < 0x2000
     }
 }
 
@@ -141,7 +141,7 @@ impl Writer for NameTablesAdapterForPpuBus {
 
 impl BusAdapter for NameTablesAdapterForPpuBus {
     fn address_accept(&self, addr: u16) -> bool {
-        return addr >= 0x2000 && addr < 0x3F00;
+        (0x2000..0x3F00).contains(&addr)
     }
 }
 
@@ -169,7 +169,7 @@ impl Writer for PalettesTablesAdapterForPpuBus {
 
 impl BusAdapter for PalettesTablesAdapterForPpuBus {
     fn address_accept(&self, addr: u16) -> bool {
-        return addr >= 0x3F00 && addr < 0x4000;
+        (0x3F00..0x4000).contains(&addr)
     }
 }
 
