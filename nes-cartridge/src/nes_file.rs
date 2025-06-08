@@ -58,9 +58,9 @@ impl From<&[u8; 16]> for NESHeader {
     }
 }
 
-const PRG_BANK_SIZE: usize = 0x4000;
-const CHR_BANK_SIZE: usize = 0x2000;
-const TRAINER_SIZE: usize = 0x0200;
+const PRG_BANK_SIZE: usize = 0x4000; // 16KB
+const CHR_BANK_SIZE: usize = 0x2000; // 8KB
+const TRAINER_SIZE: usize = 0x0200; // 512 bytes
 
 impl NESFile {
     /// 从文件路径加载 NES 文件

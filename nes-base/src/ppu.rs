@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{BusAdapter, Reader, Writer};
+use crate::{BusAdapter, Cartridge, Reader, Writer};
 
 pub trait PPU {
     fn write_reg_control(&mut self, value: u8);
@@ -26,9 +26,9 @@ pub trait PPU {
     fn attach_bus(&mut self, bus: Rc<RefCell<dyn BusAdapter>>);
 }
 
-pub struct PPUBusAdapter(pub Rc<RefCell<dyn PPU>>);
+pub struct PPUBusAdapterForCPUBus(pub Rc<RefCell<dyn PPU>>);
 
-impl Reader for PPUBusAdapter {
+impl Reader for PPUBusAdapterForCPUBus {
     fn read(&self, addr: u16) -> u8 {
         match (addr - 0x2000) % 8 {
             2 => self.0.borrow().read_reg_status(),
@@ -39,7 +39,7 @@ impl Reader for PPUBusAdapter {
     }
 }
 
-impl Writer for PPUBusAdapter {
+impl Writer for PPUBusAdapterForCPUBus {
     fn write(&mut self, addr: u16, data: u8) {
         match (addr - 0x2000) % 8 {
             0 => self.0.borrow_mut().write_reg_control(data),
@@ -54,8 +54,28 @@ impl Writer for PPUBusAdapter {
     }
 }
 
-impl BusAdapter for PPUBusAdapter {
+impl BusAdapter for PPUBusAdapterForCPUBus {
     fn address_accept(&self, addr: u16) -> bool {
         return addr >= 0x2000 && addr < 0x4000;
+    }
+}
+
+pub struct PatternTablesBusAdapterForPPUBus(pub Rc<RefCell<dyn Cartridge>>);
+
+impl Reader for PatternTablesBusAdapterForPPUBus {
+    fn read(&self, addr: u16) -> u8 {
+        self.0.borrow().ppu_read(addr)
+    }
+}
+
+impl Writer for PatternTablesBusAdapterForPPUBus {
+    fn write(&mut self, addr: u16, data: u8) {
+        self.0.borrow_mut().ppu_write(addr, data);
+    }
+}
+
+impl BusAdapter for PatternTablesBusAdapterForPPUBus {
+    fn address_accept(&self, addr: u16) -> bool {
+        return addr < 0x2000;
     }
 }

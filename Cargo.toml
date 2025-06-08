@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 
-members = ["nes-base", "nes-cpu", "nes-ram", "nes-bus", "nes-board", "nes-cartridge", "nes-dma", "nes-test"]
+members = ["nes-base", "nes-cpu", "nes-ram", "nes-bus", "nes-board", "nes-cartridge", "nes-dma", "nes-test", "nes-ppu"]
 
 [profile.release]
 opt-level = "s"

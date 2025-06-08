@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use nes_base::{
     APU, APUBusAdapter, Bus, BusAdapter, CPU, Cartridge, CartridgeCPUBusAdapter, Joypad,
-    JoypadBusAdapter, PPU, PPUBusAdapter, RAM, RAMBusAdapter,
+    JoypadBusAdapter, PPU, PPUBusAdapterForCPUBus, RAM, RAMBusAdapter,
 };
 
 pub struct BoardImpl {
@@ -31,7 +31,7 @@ impl BoardImpl {
 
         let cpu_bus_devices: [Rc<RefCell<dyn BusAdapter>>; 5] = [
             Rc::new(RefCell::new(RAMBusAdapter(self.ram.clone()))),
-            Rc::new(RefCell::new(PPUBusAdapter(self.ppu.clone()))),
+            Rc::new(RefCell::new(PPUBusAdapterForCPUBus(self.ppu.clone()))),
             Rc::new(RefCell::new(CartridgeCPUBusAdapter(self.cartridge.clone()))),
             Rc::new(RefCell::new(JoypadBusAdapter {
                 joypad1: self.joypad1.clone(),

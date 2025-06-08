@@ -8,7 +8,10 @@ use nes_cpu::CPUImpl;
 mod neslog;
 
 #[cfg(test)]
-mod tests;
+mod cpu_tests;
+
+#[cfg(test)]
+mod tile_tests;
 
 struct MockPPU;
 
