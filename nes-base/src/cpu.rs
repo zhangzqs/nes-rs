@@ -67,6 +67,6 @@ pub trait Cpu {
     fn attach_bus(&mut self, bus: Rc<RefCell<dyn BusAdapter>>);
     fn dump_state(&self) -> CpuState;
     fn increase_cycles(&mut self, cycles: u32);
-    fn send_interrupt(&mut self, interrupt: Interrupt);
+    fn trigger_interrupt(&mut self, interrupt: Interrupt);
     fn clock(&mut self);
 }

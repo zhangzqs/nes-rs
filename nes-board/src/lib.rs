@@ -1,11 +1,8 @@
-use std::{
-    cell::RefCell,
-    rc::Rc,
-};
+use std::{cell::RefCell, rc::Rc};
 
 use nes_base::{
-    ApuAdapterForCpuBus, Bus, BusAdapter, Cartridge, CartridgeAdapterForCPUBus, Cpu, Joypad,
-    JoypadAdapterForCpuBus, MirrorBusAdapterForPpuBus, NameTablesAdapterForPpuBus,
+    ApuAdapterForCpuBus, Bus, BusAdapter, Cartridge, CartridgeAdapterForCPUBus, Cpu, Interrupt,
+    Joypad, JoypadAdapterForCpuBus, MirrorBusAdapterForPpuBus, NameTablesAdapterForPpuBus,
     PalettesTablesAdapterForPpuBus, PatternTablesAdapterForPpuBus, Ppu, PpuBusAdapterForCpuBus,
     Ram, RamAdapterForCpuBus,
 };
@@ -78,5 +75,26 @@ impl BoardImpl {
         self.cpu.borrow_mut().reset(); // 重置 CPU
         self.ppu.borrow_mut().reset(); // 重置 PPU
         self.ram.borrow_mut().reset(); // 重置 RAM
+    }
+
+    pub fn clock(&mut self) {
+        self.cpu.borrow_mut().clock();
+
+        for _ in 0..3 {
+            // PPU 每个 CPU 时钟周期执行 3 次
+            self.ppu.borrow_mut().clock();
+            if self.ppu.borrow().check_nmi_interrupt() {
+                // 如果 PPU 检测到 NMI 中断，则触发 CPU 的 NMI 中断
+                self.cpu.borrow_mut().trigger_interrupt(Interrupt::Nmi);
+                self.ppu.borrow_mut().clear_nmi_interrupt();
+            }
+        }
+
+        self.apu.borrow_mut().clock();
+        if self.apu.borrow().check_irq_interrupt() {
+            // 如果 APU 检测到 IRQ 中断，则触发 CPU 的 IRQ 中断
+            self.cpu.borrow_mut().trigger_interrupt(Interrupt::Irq);
+            self.apu.borrow_mut().clear_irq_interrupt();
+        }
     }
 }

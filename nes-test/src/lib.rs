@@ -47,6 +47,12 @@ impl Ppu for MockPPU {
     fn clock(&mut self) {}
 
     fn attach_bus(&mut self, bus: std::rc::Rc<std::cell::RefCell<dyn nes_base::BusAdapter>>) {}
+
+    fn check_nmi_interrupt(&self) -> bool {
+        false
+    }
+
+    fn clear_nmi_interrupt(&mut self) {}
 }
 
 struct MockAPU;
@@ -97,12 +103,18 @@ impl Apu for MockAPU {
     }
 
     fn clock(&mut self) {}
+
+    fn check_irq_interrupt(&self) -> bool {
+        false
+    }
+
+    fn clear_irq_interrupt(&mut self) {}
 }
 
 fn new_board() -> BoardImpl {
     let nes = nes_cartridge::NESFile::from_file("testfiles/nestest.nes");
     let cartridge = nes_cartridge::CartridgeImpl::new(nes);
-    
+
     BoardImpl {
         joypad1: None,
         joypad2: None,

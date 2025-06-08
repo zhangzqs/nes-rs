@@ -25,6 +25,11 @@ pub trait Ppu {
     fn reset(&mut self);
     fn clock(&mut self);
     fn attach_bus(&mut self, bus: Rc<RefCell<dyn BusAdapter>>);
+    
+    // 检查 NMI 中断是否被触发
+    fn check_nmi_interrupt(&self) -> bool;
+    // 清除 NMI 中断
+    fn clear_nmi_interrupt(&mut self);
 }
 
 pub struct PpuBusAdapterForCpuBus(pub Rc<RefCell<dyn Ppu>>);

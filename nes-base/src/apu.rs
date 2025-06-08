@@ -37,6 +37,11 @@ pub trait Apu {
     fn read_reg_status(&self) -> u8;
 
     fn clock(&mut self);
+
+    // 检查是否有 IRQ 中断请求
+    fn check_irq_interrupt(&self) -> bool;
+    // 清除 IRQ 中断请求
+    fn clear_irq_interrupt(&mut self);
 }
 
 pub struct ApuAdapterForCpuBus(pub Rc<RefCell<dyn Apu>>);

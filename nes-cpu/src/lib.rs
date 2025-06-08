@@ -44,7 +44,7 @@ impl Cpu for CpuImpl {
         self.context.remaining_cycles += cycles;
     }
 
-    fn send_interrupt(&mut self, interrupt: Interrupt) {
+    fn trigger_interrupt(&mut self, interrupt: Interrupt) {
         if self.interrupt.is_none() {
             self.interrupt = Some(interrupt);
             return;
