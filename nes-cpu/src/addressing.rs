@@ -1,4 +1,7 @@
-use crate::{common::{is_page_crossed, AddressingMode}, state::Context};
+use crate::{
+    common::{AddressingMode, is_page_crossed},
+    state::Context,
+};
 
 pub struct AddressingModeResult {
     pub address: u16,

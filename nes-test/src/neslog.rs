@@ -1,8 +1,4 @@
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    sync::OnceLock,
-};
+use std::{cell::RefCell, rc::Rc, sync::OnceLock};
 
 use log::debug;
 use nes_base::{CpuState, Reader};

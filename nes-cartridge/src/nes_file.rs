@@ -83,10 +83,7 @@ impl NESFile {
         if header.chr_banks == 0 {
             panic!("NES file must have at least one CHR-ROM bank");
         }
-        Self {
-            bytes,
-            header,
-        }
+        Self { bytes, header }
     }
 
     pub fn header(&self) -> &NESHeader {
