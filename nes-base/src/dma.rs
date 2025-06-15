@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use crate::{Bus, BusAdapter, Cpu, Reader, Writer};
 
 pub struct DmaForCpuBus {
-    pub cpu_bus: Rc<RefCell<dyn Bus>>,
+    pub cpu_bus: Rc<RefCell<dyn BusAdapter>>,
     pub cpu: Rc<RefCell<dyn Cpu>>,
 }
 

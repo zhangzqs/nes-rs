@@ -54,7 +54,7 @@ impl BoardImpl {
         }
 
         // 连接各个设备到CPU总线上
-        let cpu_bus_devices: [Rc<RefCell<dyn BusAdapter>>; 5] = [
+        let cpu_bus_devices: [Rc<RefCell<dyn BusAdapter>>; 6] = [
             Rc::new(RefCell::new(RamAdapterForCpuBus(self.ram.clone()))),
             Rc::new(RefCell::new(PpuBusAdapterForCpuBus(self.ppu.clone()))),
             Rc::new(RefCell::new(CartridgeAdapterForCPUBus(

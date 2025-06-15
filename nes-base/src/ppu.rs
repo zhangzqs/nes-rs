@@ -68,6 +68,7 @@ impl BusAdapter for PpuBusAdapterForCpuBus {
 
 /// 游戏卡带中的图案表适配器，用于将游戏卡带的CHR-ROM区域映射到 PPU 总线上
 /// 寻址范围是 [0x0000, 0x1FFF]
+/// 大小为8KB
 pub struct PatternTablesAdapterForPpuBus(pub Rc<RefCell<dyn Cartridge>>);
 
 impl Reader for PatternTablesAdapterForPpuBus {
@@ -89,10 +90,11 @@ impl BusAdapter for PatternTablesAdapterForPpuBus {
 }
 
 /// 名称表适配器，读取挂载在PPU总线上的VRAM中的名称表数据
-/// 寻址范围是 [0x2000, 0x3EFF], 其中[0x3000, 0x3EFF]是镜像了[0x2000, 0x2FFF]的区域
+/// 寻址范围是 [0x2000, 0x3EFF], 其中[0x3000, 0x3FFF]是镜像了[0x2000, 0x2FFF]的区域
 /// VRAM 中的名称表区域总计有0x800=2KB字节
 /// 每个名称表占用0x400字节，总共有4个名称表
-/// 游戏画面分割成了32x30个图案块
+/// 游戏画面256x240分辨率被分割成了32x30个图案块
+/// 每个图案块使用一个8x8点阵图案
 /// 名称表用于确定画面中的每个图案块是什么，使用哪个8x8点阵
 pub struct NameTablesAdapterForPpuBus {
     pub vram: Rc<RefCell<dyn Ram>>,
