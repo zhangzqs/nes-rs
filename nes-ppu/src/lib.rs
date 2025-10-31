@@ -1,58 +1,45 @@
-use std::{cell::RefCell, rc::Rc};
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
 
-use nes_base::{BusAdapter, Ppu};
+use nes_base::{BusAdapter, PPU_FRAME_PIXELS, Ppu};
 
-use crate::{
-    oam::Oam,
-    register::{
-        PpuAddressRegister, PpuControlRegister, PpuMaskRegister, PpuScrollRegister,
-        PpuStatusRegister,
-    },
+use crate::oam::Oam;
+use crate::register::{
+    PpuAddressRegister, PpuControlRegister, PpuMaskRegister, PpuScrollRegister, PpuStatusRegister,
 };
+
+pub use self::framebuffer::{FRAME_HEIGHT, FRAME_PIXELS, FRAME_WIDTH, FrameBuffer};
+pub use palettes::NES_SYS_PALETTES;
 
 mod framebuffer;
 mod oam;
-mod palettes;
-mod register;
+pub mod palettes;
+pub mod register;
 mod renderer;
 
 pub struct PpuImpl {
-    /// ```text
-    /// PPU Addrress Mapping:
-    /// [0x0000, 0x2000) CHR-ROM Pattern Table
-    /// [0x2000, 0x3000) NameTable RAM 0x400 bytes
-    ///    [0x2000, 0x2400) Name Table 0
-    ///    [0x2400, 0x2800) Name Table 1
-    ///    [0x2800, 0x2C00) Name Table 2
-    ///    [0x2C00, 0x3000) Name Table 3
-    /// [0x3000, 0x4000) NameTable RAM mirror
-    /// [0x3F00, 0x4000) PaletteTable RAM 0x20 bytes
-    ///   [0x3F00, 0x3F20) Palette
-    ///   [0x3F20, 0x4000) Palette mirror
-    /// [0x4000, 0x10000) Mirror [0x0000,0x4000)
-    /// ``````
     ppu_bus: Option<Rc<RefCell<dyn BusAdapter>>>,
     scanline: u16,
     cycle: u16,
-    frame_counter: u32,
+    frame_counter: u64,
     nmi_interrupt: bool,
     oam: Oam,
-
-    // PPU 的8个寄存器
     reg_ppu_controller: PpuControlRegister,
     reg_ppu_mask: PpuMaskRegister,
     reg_ppu_status: RefCell<PpuStatusRegister>,
     reg_scroll: RefCell<PpuScrollRegister>,
     reg_address: RefCell<PpuAddressRegister>,
     reg_oam_address: u8,
-    reg_oam_data: u8,
+    vram_read_buffer: Cell<u8>,
+    frame_buffer: RefCell<FrameBuffer>,
+    frame_ready: Cell<bool>,
 }
 
 impl PpuImpl {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             ppu_bus: None,
-            scanline: 0,
+            scanline: 261, // pre-render scanline
             cycle: 0,
             frame_counter: 0,
             nmi_interrupt: false,
@@ -63,7 +50,9 @@ impl PpuImpl {
             reg_scroll: RefCell::new(PpuScrollRegister::default()),
             reg_address: RefCell::new(PpuAddressRegister::default()),
             reg_oam_address: 0,
-            reg_oam_data: 0,
+            vram_read_buffer: Cell::new(0),
+            frame_buffer: RefCell::new(FrameBuffer::new()),
+            frame_ready: Cell::new(false),
         }
     }
 
@@ -71,15 +60,39 @@ impl PpuImpl {
         let increment = self.reg_ppu_controller.vram_increment_value();
         self.reg_address.borrow_mut().increment(increment);
     }
+
+    fn render_current_frame(&mut self) {
+        let Some(bus) = &self.ppu_bus else {
+            return;
+        };
+        let mut framebuffer = self.frame_buffer.borrow_mut();
+        framebuffer.clear();
+        let sprite0_hit = renderer::render_frame(self, &*bus.borrow(), &mut framebuffer);
+        self.reg_ppu_status.borrow_mut().sprite_0_hit = sprite0_hit;
+        self.frame_ready.set(true);
+    }
+
+    pub(crate) fn control(&self) -> PpuControlRegister {
+        self.reg_ppu_controller
+    }
+
+    pub(crate) fn mask(&self) -> PpuMaskRegister {
+        self.reg_ppu_mask
+    }
+
+    pub(crate) fn scroll(&self) -> PpuScrollRegister {
+        *self.reg_scroll.borrow()
+    }
+
+    pub(crate) fn oam(&self) -> &Oam {
+        &self.oam
+    }
 }
 
 impl Ppu for PpuImpl {
     fn write_reg_control(&mut self, value: u8) {
         let before_nmi_status = self.reg_ppu_controller.nmi_enable;
-        // 更新控制寄存器
         self.reg_ppu_controller = PpuControlRegister::from(value);
-
-        // 如果在vblank期间 NMI 使能状态从禁用变为使能，触发 NMI 中断
         if !before_nmi_status
             && self.reg_ppu_controller.nmi_enable
             && self.reg_ppu_status.borrow().vblank
@@ -93,8 +106,8 @@ impl Ppu for PpuImpl {
     }
 
     fn read_reg_status(&self) -> u8 {
-        let value = self.reg_ppu_status.borrow().clone().into();
-        self.reg_ppu_status.borrow_mut().vblank = false; // 读取后清除 VBlank 标志
+        let value: u8 = self.reg_ppu_status.borrow().clone().into();
+        self.reg_ppu_status.borrow_mut().vblank = false;
         self.reg_address.borrow_mut().reset_latch();
         self.reg_scroll.borrow_mut().reset_latch();
         value
@@ -105,11 +118,11 @@ impl Ppu for PpuImpl {
     }
 
     fn read_reg_oam_data(&self) -> u8 {
-        self.reg_oam_data
+        self.oam.read(self.reg_oam_address)
     }
 
     fn write_reg_oam_data(&mut self, value: u8) {
-        self.reg_oam_data = value;
+        self.oam.write(self.reg_oam_address, value);
         self.reg_oam_address = self.reg_oam_address.wrapping_add(1);
     }
 
@@ -123,60 +136,73 @@ impl Ppu for PpuImpl {
 
     fn read_reg_data(&self) -> u8 {
         let addr = self.reg_address.borrow().get();
-        let value = self
-            .ppu_bus
-            .as_ref()
-            .expect("PPU bus not attached")
-            .borrow()
-            .read(addr);
+        let bus = self.ppu_bus.as_ref().expect("PPU bus not attached");
+        let bus_ref = bus.borrow();
 
-        // 更新地址
+        let previous = self.vram_read_buffer.get();
+        let value = bus_ref.read(addr);
+        let result = if addr >= 0x3F00 {
+            let mirrored_addr = (addr - 0x1000) & 0x3FFF;
+            let buffered = bus_ref.read(mirrored_addr);
+            self.vram_read_buffer.set(buffered);
+            value
+        } else {
+            self.vram_read_buffer.set(value);
+            previous
+        };
+
         self.increment_address();
-
-        value
+        result
     }
 
     fn write_reg_data(&mut self, value: u8) {
         let addr = self.reg_address.borrow().get();
-        self.ppu_bus
-            .as_ref()
-            .expect("PPU bus not attached")
-            .borrow_mut()
-            .write(addr, value);
-
-        // 更新地址
+        let bus = self.ppu_bus.as_ref().expect("PPU bus not attached");
+        bus.borrow_mut().write(addr, value);
         self.increment_address();
     }
 
     fn reset(&mut self) {
-        self.cycle = 340;
-        self.scanline = 240;
+        self.scanline = 261;
+        self.cycle = 0;
         self.frame_counter = 0;
+        self.nmi_interrupt = false;
+        self.oam = Oam::new();
         self.reg_ppu_controller = PpuControlRegister::default();
         self.reg_ppu_mask = PpuMaskRegister::default();
         *self.reg_ppu_status.borrow_mut() = PpuStatusRegister::default();
+        self.reg_scroll.borrow_mut().reset_latch();
+        self.reg_address.borrow_mut().reset_latch();
+        self.reg_oam_address = 0;
+        self.vram_read_buffer.set(0);
+        self.frame_buffer.borrow_mut().clear();
+        self.frame_ready.set(false);
     }
 
     fn clock(&mut self) {
         self.cycle += 1;
+
+        if self.scanline == 241 && self.cycle == 1 {
+            self.reg_ppu_status.borrow_mut().vblank = true;
+            if self.reg_ppu_controller.nmi_enable {
+                self.nmi_interrupt = true;
+            }
+            self.render_current_frame();
+        }
+
+        if self.scanline == 261 && self.cycle == 1 {
+            self.reg_ppu_status.borrow_mut().vblank = false;
+            self.reg_ppu_status.borrow_mut().sprite_0_hit = false;
+            self.reg_ppu_status.borrow_mut().sprite_overflow = false;
+            self.nmi_interrupt = false;
+            self.frame_ready.set(false);
+        }
+
         if self.cycle >= 341 {
             self.cycle = 0;
-            self.scanline += 1;
-
-            if self.scanline == 241 {
-                self.reg_ppu_status.borrow_mut().vblank = true;
-                self.reg_ppu_status.borrow_mut().sprite_0_hit = false;
-                if self.reg_ppu_controller.nmi_enable {
-                    self.nmi_interrupt = true;
-                }
-            }
-
-            if self.scanline >= 262 {
-                self.scanline = 0;
-                self.frame_counter += 1;
-                self.nmi_interrupt = false;
-                self.reg_ppu_status.borrow_mut().vblank = false;
-                self.reg_ppu_status.borrow_mut().sprite_0_hit = false;
+            self.scanline = (self.scanline + 1) % 262;
+            if self.scanline == 0 {
+                self.frame_counter = self.frame_counter.wrapping_add(1);
             }
         }
     }
@@ -191,5 +217,22 @@ impl Ppu for PpuImpl {
 
     fn clear_nmi_interrupt(&mut self) {
         self.nmi_interrupt = false;
+    }
+
+    fn frame_ready(&self) -> bool {
+        self.frame_ready.get()
+    }
+
+    fn copy_frame(&self, target: &mut [u8]) -> bool {
+        if !self.frame_ready.get() || target.len() < PPU_FRAME_PIXELS {
+            return false;
+        }
+        let framebuffer = self.frame_buffer.borrow();
+        target[..PPU_FRAME_PIXELS].copy_from_slice(framebuffer.pixels());
+        true
+    }
+
+    fn acknowledge_frame(&mut self) {
+        self.frame_ready.set(false);
     }
 }

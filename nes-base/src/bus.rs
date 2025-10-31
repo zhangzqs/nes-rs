@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{any::Any, cell::RefCell, rc::Rc};
 
 pub trait Reader {
     fn read(&self, addr: u16) -> u8;
@@ -21,6 +21,7 @@ pub trait Writer {
 // 连接设备和总线的适配器
 pub trait BusAdapter: Reader + Writer {
     fn address_accept(&self, addr: u16) -> bool;
+    fn as_any(&self) -> &dyn Any;
 }
 
 pub trait Bus: BusAdapter {

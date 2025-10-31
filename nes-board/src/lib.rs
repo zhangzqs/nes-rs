@@ -60,15 +60,12 @@ impl BoardImpl {
             Rc::new(RefCell::new(CartridgeAdapterForCPUBus(
                 self.cartridge.clone(),
             ))),
+            Rc::new(RefCell::new(ApuAdapterForCpuBus(self.apu.clone()))),
             Rc::new(RefCell::new(JoypadAdapterForCpuBus {
                 joypad1: self.joypad1.clone(),
                 joypad2: self.joypad2.clone(),
             })),
-            Rc::new(RefCell::new(ApuAdapterForCpuBus(self.apu.clone()))),
-            Rc::new(RefCell::new(DmaForCpuBus {
-                cpu_bus: self.cpu_bus.clone(),
-                cpu: self.cpu.clone(),
-            })),
+            Rc::new(RefCell::new(DmaForCpuBus)),
         ];
         for device in cpu_bus_devices {
             self.cpu_bus.borrow_mut().register_device(device);

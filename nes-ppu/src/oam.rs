@@ -27,6 +27,21 @@ impl Oam {
         Self { data: [0; 256] }
     }
 
+    #[inline]
+    pub fn read(&self, addr: u8) -> u8 {
+        self.data[addr as usize]
+    }
+
+    #[inline]
+    pub fn write(&mut self, addr: u8, value: u8) {
+        self.data[addr as usize] = value;
+    }
+
+    #[inline]
+    pub fn raw(&self) -> &[u8; 256] {
+        &self.data
+    }
+
     /// 解析公共字段，返回byte1
     fn set_common_field(&self, index: u8, sprite: &mut OamSprite) -> u8 {
         let offset = index as usize * 4;

@@ -1,6 +1,5 @@
 use std::{cell::RefCell, rc::Rc};
 
-use image::{ImageBuffer, RgbImage};
 use nes_base::{PatternTablesAdapterForPpuBus, Reader};
 
 struct Tile {
@@ -52,43 +51,6 @@ impl TileReader {
     }
 }
 
-const TILE_COLOR_TABLE: [(u8, u8, u8); 4] = [
-    (0, 0, 0),       // 黑
-    (255, 0, 0),     // 红
-    (0, 0, 255),     // 蓝
-    (255, 255, 255), // 白
-];
-
-fn render_pattern_table(tile_reader: &TileReader, filename: &str) {
-    // Create a 128x128 image (16 tiles x 16 tiles, each tile 8x8 pixels)
-    let mut img: RgbImage = ImageBuffer::new(128, 128);
-
-    for tile_index in 0u16..256 {
-        let tile = tile_reader.read_tile(tile_index as u8);
-
-        // Calculate tile's position in the image
-        let grid_x = (tile_index % 16) as u32;
-        let grid_y = (tile_index / 16) as u32;
-
-        for y in 0..8 {
-            for x in 0..8 {
-                let color_index = tile.get_pixel(x, y);
-                let pixel = TILE_COLOR_TABLE[color_index as usize];
-
-                // Calculate absolute position in image
-                let abs_x = grid_x * 8 + x as u32;
-                let abs_y = grid_y * 8 + y as u32;
-
-                img.put_pixel(abs_x, abs_y, image::Rgb([pixel.0, pixel.1, pixel.2]));
-            }
-        }
-    }
-
-    // Save the image
-    img.save(filename).unwrap();
-    println!("Saved pattern table to {}", filename);
-}
-
 #[test]
 fn test_tile_get_pixel() {
     let nes = nes_cartridge::NESFile::from_file("testfiles/Super_mario_brothers.nes");
@@ -97,6 +59,21 @@ fn test_tile_get_pixel() {
     let tile_reader_1 = TileReader::new(pattern_tables_reader.clone(), 0x0000);
     let tile_reader_2 = TileReader::new(pattern_tables_reader.clone(), 0x1000);
 
-    render_pattern_table(&tile_reader_1, "testfiles/pattern_table_0.png");
-    render_pattern_table(&tile_reader_2, "testfiles/pattern_table_1.png");
+    let tile0 = tile_reader_1.read_tile(0);
+    for y in 0..8 {
+        for x in 0..8 {
+            let px = tile0.get_pixel(x, y);
+            assert!(px < 4);
+        }
+    }
+
+    let any_nonzero_pattern0 = (0..=255)
+        .map(|i| tile_reader_1.read_tile(i))
+        .any(|tile| tile.data.iter().any(|&byte| byte != 0));
+    let any_nonzero_pattern1 = (0..=255)
+        .map(|i| tile_reader_2.read_tile(i))
+        .any(|tile| tile.data.iter().any(|&byte| byte != 0));
+
+    assert!(any_nonzero_pattern0);
+    assert!(any_nonzero_pattern1);
 }

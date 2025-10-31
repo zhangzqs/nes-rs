@@ -15,6 +15,7 @@ pub use dma::DmaForCpuBus;
 pub use joypad::{Joypad, JoypadAdapterForCpuBus};
 pub use memory::{Ram, RamAdapterForCpuBus};
 pub use ppu::{
-    MirrorBusAdapterForPpuBus, NameTablesAdapterForPpuBus, PalettesTablesAdapterForPpuBus,
-    PatternTablesAdapterForPpuBus, Ppu, PpuBusAdapterForCpuBus,
+    MirrorBusAdapterForPpuBus, NameTablesAdapterForPpuBus, PPU_FRAME_PIXELS, PPU_SCREEN_HEIGHT,
+    PPU_SCREEN_WIDTH, PalettesTablesAdapterForPpuBus, PatternTablesAdapterForPpuBus, Ppu,
+    PpuBusAdapterForCpuBus,
 };

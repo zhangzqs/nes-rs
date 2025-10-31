@@ -9,6 +9,7 @@ pub struct Mapper0 {
     chr_rom: Rc<RefCell<Vec<u8>>>,
     prg_rom: Rc<RefCell<Vec<u8>>>,
     sram: Option<Rc<RefCell<dyn Ram>>>,
+    chr_is_ram: bool,
 }
 
 impl Mapper0 {
@@ -17,12 +18,14 @@ impl Mapper0 {
         chr_rom: Rc<RefCell<Vec<u8>>>,
         prg_rom: Rc<RefCell<Vec<u8>>>,
         sram: Option<Rc<RefCell<dyn Ram>>>,
+        chr_is_ram: bool,
     ) -> Self {
         Mapper0 {
             prg_banks,
             chr_rom,
             prg_rom,
             sram,
+            chr_is_ram,
         }
     }
 
@@ -38,7 +41,7 @@ impl Mapper0 {
                 if let Some(ref sram) = self.sram {
                     sram.borrow().read(addr - 0x6000)
                 } else {
-                    panic!("SRAM not available");
+                    0
                 }
             }
             0x8000..0xC000 => {
@@ -62,15 +65,20 @@ impl Mapper0 {
     fn write(&mut self, addr: u16, value: u8) {
         match addr {
             0x0000..0x2000 => {
-                // CHR ROM is read-only in Mapper 0
-                panic!("Attempt to write to CHR ROM at address 0x{:04X}", addr);
+                if self.chr_is_ram {
+                    let mut chr_rom = self.chr_rom.borrow_mut();
+                    chr_rom[addr as usize] = value;
+                } else {
+                    panic!("Attempt to write to CHR ROM at address 0x{:04X}", addr);
+                }
             }
             0x6000..0x8000 => {
                 // SRAM
                 if let Some(ref mut sram) = self.sram {
                     sram.borrow_mut().write(addr - 0x6000, value);
                 } else {
-                    panic!("SRAM not available");
+                    // Cartridge 未提供 SRAM，忽略写入
+                    let _ = value;
                 }
             }
             0x8000..0xC000 => {

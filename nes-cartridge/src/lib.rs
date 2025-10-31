@@ -19,6 +19,7 @@ impl CartridgeImpl {
         let mapper_id = nes.header().mapper_id;
         let prg_banks = nes.header().prg_banks;
         let has_battery_backed = nes.header().has_battery_backed;
+        let chr_is_ram = nes.header().chr_banks == 0;
         let chr_rom = Rc::new(RefCell::new(nes.chr_rom()));
         let prg_rom = Rc::new(RefCell::new(nes.prg_rom()));
         let sram: Option<Rc<RefCell<dyn Ram>>> = if has_battery_backed {
@@ -27,7 +28,9 @@ impl CartridgeImpl {
             None
         };
         CartridgeImpl {
-            mapper: mapper::get_mapper_by_id(mapper_id, prg_banks, chr_rom, prg_rom, sram),
+            mapper: mapper::get_mapper_by_id(
+                mapper_id, prg_banks, chr_rom, prg_rom, sram, chr_is_ram,
+            ),
             mirroring: nes.header().mirroring,
         }
     }

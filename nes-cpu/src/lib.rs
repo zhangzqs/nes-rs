@@ -107,6 +107,10 @@ impl Cpu for CpuImpl {
         );
         self.increase_cycles(op.cycles as u32);
         execute_instruction(&mut self.context, op.instruction);
+        if self.context.take_dma_request() {
+            let extra_cycles = 513 + (self.total_cycles % 2);
+            self.increase_cycles(extra_cycles);
+        }
         debug!(
             "Instruction executed: {:?}, PC: {:04X}, A: {:02X}, X: {:02X}, Y: {:02X}, SP: {:02X}, Status: {:02X}",
             op.instruction,

@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use nes_base::{Bus, BusAdapter, Reader, Writer};
+use nes_base::{Bus, BusAdapter, DmaForCpuBus, Reader, Writer};
 
 pub struct BusImpl {
     devices: Vec<Rc<RefCell<dyn BusAdapter>>>,
@@ -39,8 +39,23 @@ impl Reader for BusImpl {
 
 impl Writer for BusImpl {
     fn write(&mut self, address: u16, data: u8) {
-        for device in &mut self.devices {
+        for device in &self.devices {
             if device.borrow().address_accept(address) {
+                if address == 0x4014 {
+                    let dma_ptr = {
+                        let adapter = device.borrow();
+                        adapter
+                            .as_any()
+                            .downcast_ref::<DmaForCpuBus>()
+                            .map(|dma| dma as *const DmaForCpuBus)
+                    };
+                    if let Some(dma_ptr) = dma_ptr {
+                        unsafe {
+                            (&*dma_ptr).write_with_bus(data, self);
+                        }
+                        return;
+                    }
+                }
                 device.borrow_mut().write(address, data);
                 return;
             }
@@ -54,5 +69,9 @@ impl BusAdapter for BusImpl {
         self.devices
             .iter()
             .any(|device| device.borrow().address_accept(addr))
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }

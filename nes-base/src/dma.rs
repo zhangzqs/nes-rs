@@ -1,11 +1,6 @@
-use std::{cell::RefCell, rc::Rc};
+use crate::{BusAdapter, Reader, Writer};
 
-use crate::{Bus, BusAdapter, Cpu, Reader, Writer};
-
-pub struct DmaForCpuBus {
-    pub cpu_bus: Rc<RefCell<dyn BusAdapter>>,
-    pub cpu: Rc<RefCell<dyn Cpu>>,
-}
+pub struct DmaForCpuBus;
 
 impl Reader for DmaForCpuBus {
     fn read(&self, addr: u16) -> u8 {
@@ -14,23 +9,28 @@ impl Reader for DmaForCpuBus {
 }
 
 impl Writer for DmaForCpuBus {
-    fn write(&mut self, _: u16, data: u8) {
-        let source_page = data;
-        for i in 0..256 {
-            let addr = (source_page as u16) << 8 | i;
-            let data = self.cpu_bus.borrow().read(addr);
-            self.cpu_bus.borrow_mut().write(0x2004, data);
-        }
-        let total_cycles = self.cpu.borrow().dump_state().total_cycles;
-        // 513 cycles for DMA transfer, plus 1 cycle if total_cycles is odd
-        self.cpu
-            .borrow_mut()
-            .increase_cycles(513 + total_cycles % 2);
+    fn write(&mut self, _: u16, _: u8) {
+        unreachable!("DMA writes must be routed through BusImpl::write to avoid borrow conflicts");
     }
 }
 
 impl BusAdapter for DmaForCpuBus {
     fn address_accept(&self, addr: u16) -> bool {
         addr == 0x4014
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl DmaForCpuBus {
+    pub fn write_with_bus(&self, data: u8, bus: &mut dyn BusAdapter) {
+        let source_page = data as u16;
+        for offset in 0..256u16 {
+            let addr = (source_page << 8) | offset;
+            let value = bus.read(addr);
+            bus.write(0x2004, value);
+        }
     }
 }

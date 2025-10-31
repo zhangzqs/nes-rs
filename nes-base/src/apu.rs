@@ -97,4 +97,8 @@ impl BusAdapter for ApuAdapterForCpuBus {
     fn address_accept(&self, addr: u16) -> bool {
         (0x4000..0x4014).contains(&addr) || addr == 0x4015
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }

@@ -1,35 +1,56 @@
+pub const FRAME_WIDTH: usize = 256;
+pub const FRAME_HEIGHT: usize = 240;
+pub const FRAME_PIXELS: usize = FRAME_WIDTH * FRAME_HEIGHT;
+
 pub struct FrameBuffer {
-    // 每个像素6bit，范围0..63，使用u8存储
-    buffer: [u8; 256 * 240],
+    colors: [u8; FRAME_PIXELS],
+    background_pixel_values: [u8; FRAME_PIXELS],
 }
 
 impl FrameBuffer {
     pub fn new() -> Self {
         Self {
-            buffer: [0; 256 * 240],
+            colors: [0; FRAME_PIXELS],
+            background_pixel_values: [0; FRAME_PIXELS],
         }
     }
 
     #[inline]
-    pub fn set_pixel(&mut self, x: u8, y: u8, color_idx: u8) {
-        if y < 240 && color_idx < 64 {
-            let idx = y as usize * 256 + x as usize;
-            self.buffer[idx] = color_idx & 0b0001_1111;
-            return;
-        }
-        panic!(
-            "set_pixel out of bounds: x={}, y={}, color_idx={}",
-            x, y, color_idx
-        );
+    pub fn clear(&mut self) {
+        self.colors.fill(0);
+        self.background_pixel_values.fill(0);
     }
 
     #[inline]
-    pub fn get_pixel(&self, x: u8, y: u8) -> u8 {
-        if y < 240 {
-            let idx = y as usize * 256 + x as usize;
-            self.buffer[idx] & 0b0011_1111
-        } else {
-            panic!("get_pixel out of bounds: x={}, y={}", x, y);
-        }
+    pub fn set_background_pixel(&mut self, x: usize, y: usize, color_idx: u8, bg_value: u8) {
+        let idx = y * FRAME_WIDTH + x;
+        self.colors[idx] = color_idx & 0b0011_1111;
+        self.background_pixel_values[idx] = bg_value & 0b11;
+    }
+
+    #[inline]
+    pub fn set_sprite_pixel(&mut self, x: usize, y: usize, color_idx: u8) {
+        let idx = y * FRAME_WIDTH + x;
+        self.colors[idx] = color_idx & 0b0011_1111;
+    }
+
+    #[inline]
+    pub fn color(&self, x: usize, y: usize) -> u8 {
+        self.colors[y * FRAME_WIDTH + x]
+    }
+
+    #[inline]
+    pub fn background_value(&self, x: usize, y: usize) -> u8 {
+        self.background_pixel_values[y * FRAME_WIDTH + x]
+    }
+
+    #[inline]
+    pub fn pixels(&self) -> &[u8] {
+        &self.colors
+    }
+
+    #[inline]
+    pub fn pixels_mut(&mut self) -> &mut [u8] {
+        &mut self.colors
     }
 }

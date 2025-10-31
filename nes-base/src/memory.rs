@@ -24,4 +24,8 @@ impl BusAdapter for RamAdapterForCpuBus {
     fn address_accept(&self, addr: u16) -> bool {
         addr < 0x2000 // 2KB of RAM
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }

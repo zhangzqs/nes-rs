@@ -80,9 +80,6 @@ impl NESFile {
         if header.prg_banks == 0 {
             panic!("NES file must have at least one PRG-ROM bank");
         }
-        if header.chr_banks == 0 {
-            panic!("NES file must have at least one CHR-ROM bank");
-        }
         Self { bytes, header }
     }
 
@@ -99,9 +96,13 @@ impl NESFile {
 
     /// Get CHR-ROM data
     pub fn chr_rom(&self) -> Vec<u8> {
-        let start = self.chr_rom_start();
-        let end = start + (self.header.chr_banks as usize * CHR_BANK_SIZE);
-        self.bytes[start..end].to_vec()
+        if self.header.chr_banks == 0 {
+            vec![0; CHR_BANK_SIZE]
+        } else {
+            let start = self.chr_rom_start();
+            let end = start + (self.header.chr_banks as usize * CHR_BANK_SIZE);
+            self.bytes[start..end].to_vec()
+        }
     }
 
     /// Get trainer ROM data

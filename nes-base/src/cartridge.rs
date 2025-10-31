@@ -36,4 +36,8 @@ impl BusAdapter for CartridgeAdapterForCPUBus {
     fn address_accept(&self, addr: u16) -> bool {
         addr >= 0x4020
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }

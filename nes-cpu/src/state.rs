@@ -35,6 +35,7 @@ pub struct Context {
     pub remaining_cycles: u32,
     pub data_address: u16,
     pub op: Option<Op>,
+    pending_dma_request: bool,
 }
 
 impl Context {
@@ -50,6 +51,7 @@ impl Context {
             remaining_cycles: 7,
             data_address: 0,
             op: None,
+            pending_dma_request: false,
         }
     }
 }
@@ -108,11 +110,14 @@ impl Context {
         self.bus.as_ref().unwrap().borrow().read(addr)
     }
 
-    fn write_bus_8bit(&self, addr: u16, value: u8) {
+    fn write_bus_8bit(&mut self, addr: u16, value: u8) {
         if self.bus.is_none() {
             panic!("Bus is not attached to the context");
         }
         self.bus.as_ref().unwrap().borrow_mut().write(addr, value);
+        if addr == 0x4014 {
+            self.pending_dma_request = true;
+        }
     }
 
     pub fn read_bus_16bit(&self, addr: u16) -> u16 {
@@ -155,6 +160,12 @@ impl Context {
 
     pub fn get_op_mode(&self) -> AddressingMode {
         self.op.unwrap().mode
+    }
+
+    pub fn take_dma_request(&mut self) -> bool {
+        let pending = self.pending_dma_request;
+        self.pending_dma_request = false;
+        pending
     }
 }
 

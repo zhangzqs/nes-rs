@@ -1,4 +1,3 @@
-
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PpuStatusRegister {
     /// VBlank 标志

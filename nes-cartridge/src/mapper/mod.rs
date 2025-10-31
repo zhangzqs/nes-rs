@@ -20,10 +20,11 @@ pub fn get_mapper_by_id(
     chr_rom: Rc<RefCell<Vec<u8>>>,
     prg_rom: Rc<RefCell<Vec<u8>>>,
     sram: Option<Rc<RefCell<dyn Ram>>>,
+    chr_is_ram: bool,
 ) -> Box<dyn Mapper> {
     match mapper_id {
-        0 => Box::new(Mapper0::new(prg_banks, chr_rom, prg_rom, sram)),
-        2 => Box::new(Mapper2::new(prg_banks, chr_rom, prg_rom, sram)),
+        0 => Box::new(Mapper0::new(prg_banks, chr_rom, prg_rom, sram, chr_is_ram)),
+        2 => Box::new(Mapper2::new(prg_banks, chr_rom, prg_rom, sram, chr_is_ram)),
         _ => panic!("Unsupported mapper ID: {}", mapper_id),
     }
 }

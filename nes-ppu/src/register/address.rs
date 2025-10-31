@@ -1,4 +1,3 @@
-
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PpuAddressRegister {
     /// 高字节
@@ -15,6 +14,7 @@ impl PpuAddressRegister {
     }
 
     pub fn set(&mut self, value: u16) {
+        let value = value & 0x3FFF;
         self.high = (value >> 8) as u8;
         self.low = (value & 0xFF) as u8;
     }
@@ -29,24 +29,15 @@ impl PpuAddressRegister {
         } else {
             self.low = value;
         }
-
-        if self.get() > 0x3FFF {
-            panic!("PPU address out of bounds: {}", self.get());
-        }
+        self.set(self.get());
 
         // 切换高位指针
         self.high_ptr = !self.high_ptr;
     }
 
     pub fn increment(&mut self, inc: u8) {
-        let lo = self.low;
-        self.low = self.low.wrapping_add(inc);
-        if self.low < lo {
-            // 如果低字节溢出，增加高字节
-            self.high = self.high.wrapping_add(1);
-        }
-        if self.get() > 0x3FFF {
-            panic!("PPU address out of bounds after increment: {}", self.get());
-        }
+        let mut addr = self.get();
+        addr = addr.wrapping_add(inc as u16) & 0x3FFF;
+        self.set(addr);
     }
 }

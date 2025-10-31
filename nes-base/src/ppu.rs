@@ -3,6 +3,10 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{Bus, BusAdapter, Cartridge, Mirroring, Ram, Reader, Writer};
 
+pub const PPU_SCREEN_WIDTH: usize = 256;
+pub const PPU_SCREEN_HEIGHT: usize = 240;
+pub const PPU_FRAME_PIXELS: usize = PPU_SCREEN_WIDTH * PPU_SCREEN_HEIGHT;
+
 pub trait Ppu {
     fn write_reg_control(&mut self, value: u8);
 
@@ -30,6 +34,10 @@ pub trait Ppu {
     fn check_nmi_interrupt(&self) -> bool;
     // 清除 NMI 中断
     fn clear_nmi_interrupt(&mut self);
+
+    fn frame_ready(&self) -> bool;
+    fn copy_frame(&self, target: &mut [u8]) -> bool;
+    fn acknowledge_frame(&mut self);
 }
 
 pub struct PpuBusAdapterForCpuBus(pub Rc<RefCell<dyn Ppu>>);
@@ -64,6 +72,10 @@ impl BusAdapter for PpuBusAdapterForCpuBus {
     fn address_accept(&self, addr: u16) -> bool {
         (0x2000..0x4000).contains(&addr)
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// 游戏卡带中的图案表适配器，用于将游戏卡带的CHR-ROM区域映射到 PPU 总线上
@@ -86,6 +98,10 @@ impl Writer for PatternTablesAdapterForPpuBus {
 impl BusAdapter for PatternTablesAdapterForPpuBus {
     fn address_accept(&self, addr: u16) -> bool {
         addr < 0x2000
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -150,6 +166,10 @@ impl BusAdapter for NameTablesAdapterForPpuBus {
     fn address_accept(&self, addr: u16) -> bool {
         (0x2000..0x3F00).contains(&addr)
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// 调色板适配器，读取挂载在PPU总线上的VRAM中的调色板数据
@@ -164,13 +184,15 @@ pub struct PalettesTablesAdapterForPpuBus {
 
 impl Reader for PalettesTablesAdapterForPpuBus {
     fn read(&self, addr: u16) -> u8 {
-        self.vram.borrow().read((addr - 0x3F00) % 0x20)
+        let index = palette_index(addr);
+        self.vram.borrow().read(index)
     }
 }
 
 impl Writer for PalettesTablesAdapterForPpuBus {
     fn write(&mut self, addr: u16, data: u8) {
-        self.vram.borrow_mut().write((addr - 0x3F00) % 0x20, data);
+        let index = palette_index(addr);
+        self.vram.borrow_mut().write(index, data);
     }
 }
 
@@ -178,6 +200,19 @@ impl BusAdapter for PalettesTablesAdapterForPpuBus {
     fn address_accept(&self, addr: u16) -> bool {
         (0x3F00..0x4000).contains(&addr)
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+#[inline]
+fn palette_index(addr: u16) -> u16 {
+    let mut index = (addr - 0x3F00) % 0x20;
+    if index == 0x10 || index == 0x14 || index == 0x18 || index == 0x1C {
+        index -= 0x10;
+    }
+    index
 }
 
 /// PPU 总线镜像适配器，用于在总线上构造出按0x4000镜像的PPU总线
@@ -203,5 +238,9 @@ impl Writer for MirrorBusAdapterForPpuBus {
 impl BusAdapter for MirrorBusAdapterForPpuBus {
     fn address_accept(&self, addr: u16) -> bool {
         addr >= 0x4000
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }

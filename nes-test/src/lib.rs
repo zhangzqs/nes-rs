@@ -53,6 +53,16 @@ impl Ppu for MockPPU {
     }
 
     fn clear_nmi_interrupt(&mut self) {}
+
+    fn frame_ready(&self) -> bool {
+        false
+    }
+
+    fn copy_frame(&self, _target: &mut [u8]) -> bool {
+        false
+    }
+
+    fn acknowledge_frame(&mut self) {}
 }
 
 struct MockAPU;
