@@ -6,22 +6,57 @@ use crate::register::{PpuControlRegister, PpuMaskRegister};
 
 const NAMETABLE_BASES: [u16; 4] = [0x2000, 0x2400, 0x2800, 0x2C00];
 
-pub(crate) fn render_frame(ppu: &PpuImpl, reader: &dyn Reader, fb: &mut FrameBuffer) -> bool {
-    let control = ppu.control();
-    let mask = ppu.mask();
-    let scroll = ppu.scroll();
+#[derive(Clone, Copy, Default)]
+pub(crate) struct RenderState {
+    pub(crate) scroll_x: u8,
+    pub(crate) scroll_y: u8,
+    pub(crate) control: PpuControlRegister,
+    pub(crate) mask: PpuMaskRegister,
+}
+
+#[derive(Clone)]
+pub(crate) struct RenderEvent {
+    pub(crate) scanline: u16,
+    pub(crate) cycle: u16,
+    pub(crate) state: RenderState,
+    position: u32,
+}
+
+impl RenderEvent {
+    #[inline]
+    pub(crate) fn new(scanline: u16, cycle: u16, state: RenderState) -> Self {
+        let cycle_value = cycle.min(340) as u32;
+        let position = scanline as u32 * 341 + cycle_value;
+        Self {
+            scanline,
+            cycle,
+            state,
+            position,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn position_value(&self) -> u32 {
+        self.position
+    }
+}
+
+pub(crate) fn render_frame(
+    ppu: &PpuImpl,
+    reader: &dyn Reader,
+    fb: &mut FrameBuffer,
+    initial_state: RenderState,
+    events: &[RenderEvent],
+) -> bool {
     let universal_bg_color = reader.read(0x3F00);
 
-    render_background(
-        control,
-        mask,
-        scroll.scroll_x,
-        scroll.scroll_y,
-        reader,
-        fb,
-        universal_bg_color,
-    );
-    let sprite0_hit = render_sprites(ppu, control, mask, reader, fb);
+    render_background(reader, fb, universal_bg_color, events, initial_state);
+
+    let sprite_state = events
+        .last()
+        .map(|event| event.state)
+        .unwrap_or(initial_state);
+    let sprite0_hit = render_sprites(ppu, sprite_state.control, sprite_state.mask, reader, fb);
 
     debug_assert_eq!(FRAME_WIDTH, PPU_SCREEN_WIDTH);
     debug_assert_eq!(FRAME_HEIGHT, PPU_SCREEN_HEIGHT);
@@ -30,27 +65,44 @@ pub(crate) fn render_frame(ppu: &PpuImpl, reader: &dyn Reader, fb: &mut FrameBuf
 }
 
 fn render_background(
-    control: PpuControlRegister,
-    mask: PpuMaskRegister,
-    scroll_x: u8,
-    scroll_y: u8,
     reader: &dyn Reader,
     fb: &mut FrameBuffer,
     universal_bg_color: u8,
+    events: &[RenderEvent],
+    initial_state: RenderState,
 ) {
-    let base_nametable_x = (control.nametable_address & 0x1) as usize * FRAME_WIDTH;
-    let base_nametable_y = ((control.nametable_address >> 1) & 0x1) as usize * FRAME_HEIGHT;
-    let bg_table_base = control.background_pattern_table_address_in_ppu_bus();
+    let mut current_state = initial_state;
+    let mut event_index = 0;
+    let mut next_event_pos = events.get(0).map(RenderEvent::position_value);
 
     for y in 0..FRAME_HEIGHT {
+        let row_base_position = y as u32 * 341;
         for x in 0..FRAME_WIDTH {
+            let pixel_position = row_base_position + (x as u32 + 1);
+            while let Some(event_pos) = next_event_pos {
+                if event_pos <= pixel_position {
+                    current_state = events[event_index].state;
+                    event_index += 1;
+                    next_event_pos = events.get(event_index).map(RenderEvent::position_value);
+                } else {
+                    break;
+                }
+            }
+
+            let mask = current_state.mask;
             if !mask.show_background || (!mask.show_background_left && x < 8) {
                 fb.set_background_pixel(x, y, universal_bg_color, 0);
                 continue;
             }
 
-            let total_x = (base_nametable_x + scroll_x as usize + x) % (FRAME_WIDTH * 2);
-            let total_y = (base_nametable_y + scroll_y as usize + y) % (FRAME_HEIGHT * 2);
+            let control = current_state.control;
+            let scroll_x = current_state.scroll_x as usize;
+            let scroll_y = current_state.scroll_y as usize;
+            let base_nametable_x = (control.nametable_address & 0x1) as usize * FRAME_WIDTH;
+            let base_nametable_y = ((control.nametable_address >> 1) & 0x1) as usize * FRAME_HEIGHT;
+
+            let total_x = (base_nametable_x + scroll_x + x) % (FRAME_WIDTH * 2);
+            let total_y = (base_nametable_y + scroll_y + y) % (FRAME_HEIGHT * 2);
 
             let tile_x = total_x / 8;
             let tile_y = total_y / 8;
@@ -59,9 +111,12 @@ fn render_background(
 
             let nametable_index = (tile_y / 30) * 2 + (tile_x / 32);
             let nametable_base = NAMETABLE_BASES[nametable_index % 4];
-            let tile_index_addr = nametable_base + ((tile_y % 30) * 32 + (tile_x % 32)) as u16;
+            let coarse_y = tile_y % 30;
+            let coarse_x = tile_x % 32;
+            let tile_index_addr = nametable_base + (coarse_y * 32 + coarse_x) as u16;
             let tile = reader.read(tile_index_addr) as u16;
 
+            let bg_table_base = control.background_pattern_table_address_in_ppu_bus();
             let tile_base_addr = bg_table_base + tile * 16;
             let plane0 = reader.read(tile_base_addr + fine_y as u16);
             let plane1 = reader.read(tile_base_addr + fine_y as u16 + 8);
@@ -74,9 +129,9 @@ fn render_background(
             }
 
             let attribute_addr =
-                nametable_base + 0x03C0 + (((tile_y % 30) / 4) * 8 + ((tile_x % 32) / 4)) as u16;
+                nametable_base + 0x03C0 + ((coarse_y / 4) * 8 + (coarse_x / 4)) as u16;
             let attribute = reader.read(attribute_addr);
-            let palette_shift = match ((tile_y % 4) / 2, (tile_x % 4) / 2) {
+            let palette_shift = match (((coarse_y % 4) / 2), ((coarse_x % 4) / 2)) {
                 (0, 0) => 0,
                 (0, 1) => 2,
                 (1, 0) => 4,
@@ -143,7 +198,8 @@ fn render_sprites(
             } else {
                 row
             };
-            let (pattern_base, tile_number, fine_y) = sprite_pattern_params(control, tile_index, row_index);
+            let (pattern_base, tile_number, fine_y) =
+                sprite_pattern_params(control, tile_index, row_index);
             let tile_addr = pattern_base + tile_number * 16 + fine_y as u16;
             let plane0 = reader.read(tile_addr);
             let plane1 = reader.read(tile_addr + 8);
@@ -182,7 +238,11 @@ fn render_sprites(
                 // 优先级修正：0=前景，1=背景后
                 if !behind_background || fb.background_value(sx, sy) == 0 {
                     let mut palette_addr = 0x3F10 + palette_index as u16 * 4 + pixel as u16;
-                    if palette_addr == 0x3F10 || palette_addr == 0x3F14 || palette_addr == 0x3F18 || palette_addr == 0x3F1C {
+                    if palette_addr == 0x3F10
+                        || palette_addr == 0x3F14
+                        || palette_addr == 0x3F18
+                        || palette_addr == 0x3F1C
+                    {
                         palette_addr -= 0x10;
                     }
                     let color = reader.read(palette_addr);
@@ -195,19 +255,28 @@ fn render_sprites(
     sprite0_hit
 }
 
-fn sprite_pattern_params(control: PpuControlRegister, tile_index: u8, row_index: usize) -> (u16, u16, u8) {
-    let pattern_base = if control.sprite_size_in_pixels() == 16 {
-        (tile_index & 0x01) as u16 * 0x1000
+fn sprite_pattern_params(
+    control: PpuControlRegister,
+    tile_index: u8,
+    row_index: usize,
+) -> (u16, u16, u8) {
+    let sprite_height = control.sprite_size_in_pixels() as usize;
+    if sprite_height == 16 {
+        // 8x16 精灵使用两个连续的 tile，奇偶位决定图案表
+        let pattern_base = ((tile_index & 0x01) as u16) * 0x1000;
+        let top_tile = (tile_index & 0xFE) as u16;
+        if row_index < 8 {
+            (pattern_base, top_tile, row_index as u8)
+        } else {
+            (pattern_base, top_tile + 1, (row_index - 8) as u8)
+        }
     } else {
-        control.sprite_pattern_table_address_in_ppu_bus()
-    };
-    let tile_number = if control.sprite_size_in_pixels() == 16 {
-        (tile_index & 0xFE) as u16
-    } else {
-        tile_index as u16
-    };
-    let fine_y = row_index as u8;
-    (pattern_base, tile_number, fine_y)
+        (
+            control.sprite_pattern_table_address_in_ppu_bus(),
+            tile_index as u16,
+            row_index as u8,
+        )
+    }
 }
 
 fn background_visible(mask: PpuMaskRegister, x: usize) -> bool {

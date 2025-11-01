@@ -7,6 +7,7 @@ use crate::oam::Oam;
 use crate::register::{
     PpuAddressRegister, PpuControlRegister, PpuMaskRegister, PpuScrollRegister, PpuStatusRegister,
 };
+use crate::renderer::{RenderEvent, RenderState};
 
 pub use self::framebuffer::{FRAME_HEIGHT, FRAME_PIXELS, FRAME_WIDTH, FrameBuffer};
 pub use palettes::NES_SYS_PALETTES;
@@ -33,6 +34,9 @@ pub struct PpuImpl {
     vram_read_buffer: Cell<u8>,
     frame_buffer: RefCell<FrameBuffer>,
     frame_ready: Cell<bool>,
+    frame_events: RefCell<Vec<RenderEvent>>,
+    current_frame_state: Cell<RenderState>,
+    next_frame_state: Cell<RenderState>,
 }
 
 impl PpuImpl {
@@ -53,6 +57,9 @@ impl PpuImpl {
             vram_read_buffer: Cell::new(0),
             frame_buffer: RefCell::new(FrameBuffer::new()),
             frame_ready: Cell::new(false),
+            frame_events: RefCell::new(Vec::new()),
+            current_frame_state: Cell::new(RenderState::default()),
+            next_frame_state: Cell::new(RenderState::default()),
         }
     }
 
@@ -67,21 +74,45 @@ impl PpuImpl {
         };
         let mut framebuffer = self.frame_buffer.borrow_mut();
         framebuffer.clear();
-        let sprite0_hit = renderer::render_frame(self, &*bus.borrow(), &mut framebuffer);
+        let initial_state = self.current_frame_state.get();
+        let events = {
+            let events_ref = self.frame_events.borrow();
+            events_ref.clone()
+        };
+        let sprite0_hit = renderer::render_frame(
+            self,
+            &*bus.borrow(),
+            &mut framebuffer,
+            initial_state,
+            &events,
+        );
+        self.frame_events.borrow_mut().clear();
         self.reg_ppu_status.borrow_mut().sprite_0_hit = sprite0_hit;
         self.frame_ready.set(true);
     }
 
-    pub(crate) fn control(&self) -> PpuControlRegister {
-        self.reg_ppu_controller
+    fn current_render_state(&self) -> RenderState {
+        let scroll = *self.reg_scroll.borrow();
+        RenderState {
+            scroll_x: scroll.scroll_x,
+            scroll_y: scroll.scroll_y,
+            control: self.reg_ppu_controller,
+            mask: self.reg_ppu_mask,
+        }
     }
 
-    pub(crate) fn mask(&self) -> PpuMaskRegister {
-        self.reg_ppu_mask
-    }
-
-    pub(crate) fn scroll(&self) -> PpuScrollRegister {
-        *self.reg_scroll.borrow()
+    fn record_render_state_change(&mut self) {
+        let state = self.current_render_state();
+        if self.scanline < 241 {
+            self.frame_events
+                .borrow_mut()
+                .push(RenderEvent::new(self.scanline, self.cycle, state));
+        } else {
+            self.next_frame_state.set(state);
+            if self.scanline == 261 {
+                self.current_frame_state.set(state);
+            }
+        }
     }
 
     pub(crate) fn oam(&self) -> &Oam {
@@ -99,10 +130,12 @@ impl Ppu for PpuImpl {
         {
             self.nmi_interrupt = true;
         }
+        self.record_render_state_change();
     }
 
     fn write_reg_mask(&mut self, value: u8) {
         self.reg_ppu_mask = PpuMaskRegister::from(value);
+        self.record_render_state_change();
     }
 
     fn read_reg_status(&self) -> u8 {
@@ -128,6 +161,7 @@ impl Ppu for PpuImpl {
 
     fn write_reg_scroll(&mut self, value: u8) {
         self.reg_scroll.borrow_mut().write(value);
+        self.record_render_state_change();
     }
 
     fn write_reg_address(&mut self, value: u8) {
@@ -177,6 +211,10 @@ impl Ppu for PpuImpl {
         self.vram_read_buffer.set(0);
         self.frame_buffer.borrow_mut().clear();
         self.frame_ready.set(false);
+        self.frame_events.borrow_mut().clear();
+        let default_state = RenderState::default();
+        self.current_frame_state.set(default_state);
+        self.next_frame_state.set(default_state);
     }
 
     fn clock(&mut self) {
@@ -196,6 +234,9 @@ impl Ppu for PpuImpl {
             self.reg_ppu_status.borrow_mut().sprite_overflow = false;
             self.nmi_interrupt = false;
             self.frame_ready.set(false);
+            let initial_state = self.next_frame_state.get();
+            self.current_frame_state.set(initial_state);
+            self.frame_events.borrow_mut().clear();
         }
 
         if self.cycle >= 341 {

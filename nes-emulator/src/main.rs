@@ -180,9 +180,9 @@ fn upload_frame_to_texture(texture: &mut sdl2::render::Texture, pixels: &[u8]) -
                     let idx = pixels[y * PPU_SCREEN_WIDTH + x] as usize % NES_SYS_PALETTES.len();
                     let color = NES_SYS_PALETTES[idx];
                     let offset = y * pitch + x * 3;
-                    buffer[offset] = (color & 0xFF) as u8;
+                    buffer[offset] = ((color >> 16) & 0xFF) as u8;
                     buffer[offset + 1] = ((color >> 8) & 0xFF) as u8;
-                    buffer[offset + 2] = ((color >> 16) & 0xFF) as u8;
+                    buffer[offset + 2] = (color & 0xFF) as u8;
                 }
             }
         })
