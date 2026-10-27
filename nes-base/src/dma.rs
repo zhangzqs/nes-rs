@@ -1,36 +1,25 @@
-use std::{cell::RefCell, rc::Rc};
+use crate::{BusAdapter, Reader, Writer};
+use std::cell::Cell;
 
-use crate::{Bus, BusAdapter, Cpu, Reader, Writer};
-
+#[derive(Default)]
 pub struct DmaForCpuBus {
-    pub cpu_bus: Rc<RefCell<dyn BusAdapter>>,
-    pub cpu: Rc<RefCell<dyn Cpu>>,
+    page: Cell<Option<u8>>,
 }
-
 impl Reader for DmaForCpuBus {
-    fn read(&self, addr: u16) -> u8 {
-        panic!("DMA read from unsupported address: {:#04X}", addr)
+    fn read(&self, _: u16) -> u8 {
+        0
     }
 }
-
 impl Writer for DmaForCpuBus {
     fn write(&mut self, _: u16, data: u8) {
-        let source_page = data;
-        for i in 0..256 {
-            let addr = (source_page as u16) << 8 | i;
-            let data = self.cpu_bus.borrow().read(addr);
-            self.cpu_bus.borrow_mut().write(0x2004, data);
-        }
-        let total_cycles = self.cpu.borrow().dump_state().total_cycles;
-        // 513 cycles for DMA transfer, plus 1 cycle if total_cycles is odd
-        self.cpu
-            .borrow_mut()
-            .increase_cycles(513 + total_cycles % 2);
+        self.page.set(Some(data));
     }
 }
-
 impl BusAdapter for DmaForCpuBus {
     fn address_accept(&self, addr: u16) -> bool {
         addr == 0x4014
+    }
+    fn take_dma_request(&self) -> Option<u8> {
+        self.page.take()
     }
 }

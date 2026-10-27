@@ -1,195 +1,272 @@
-use std::{cell::RefCell, rc::Rc};
-
 use nes_base::{BusAdapter, Ppu};
-
-use crate::{
-    oam::Oam,
-    register::{
-        PpuAddressRegister, PpuControlRegister, PpuMaskRegister, PpuScrollRegister,
-        PpuStatusRegister,
-    },
+use oam::Oam;
+use register::{PpuAddressRegister, PpuControlRegister, PpuMaskRegister, PpuStatusRegister};
+use renderer::RenderState;
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
 };
 
-mod framebuffer;
+pub mod framebuffer;
 mod oam;
 mod palettes;
 mod register;
 mod renderer;
 
+pub use framebuffer::{FrameBuffer, HEIGHT, WIDTH};
+
 pub struct PpuImpl {
-    /// ```text
-    /// PPU Addrress Mapping:
-    /// [0x0000, 0x2000) CHR-ROM Pattern Table
-    /// [0x2000, 0x3000) NameTable RAM 0x400 bytes
-    ///    [0x2000, 0x2400) Name Table 0
-    ///    [0x2400, 0x2800) Name Table 1
-    ///    [0x2800, 0x2C00) Name Table 2
-    ///    [0x2C00, 0x3000) Name Table 3
-    /// [0x3000, 0x4000) NameTable RAM mirror
-    /// [0x3F00, 0x4000) PaletteTable RAM 0x20 bytes
-    ///   [0x3F00, 0x3F20) Palette
-    ///   [0x3F20, 0x4000) Palette mirror
-    /// [0x4000, 0x10000) Mirror [0x0000,0x4000)
-    /// ``````
     ppu_bus: Option<Rc<RefCell<dyn BusAdapter>>>,
     scanline: u16,
     cycle: u16,
-    frame_counter: u32,
-    nmi_interrupt: bool,
+    frame_counter: u64,
+    total_cycles: u64,
+    bus_address: Cell<u16>,
+    odd_frame: bool,
+    skip_frame_dot: bool,
+    nmi_interrupt: Cell<bool>,
+    nmi_delay: Cell<u8>,
+    suppress_vblank: Cell<bool>,
     oam: Oam,
+    control: PpuControlRegister,
+    mask: PpuMaskRegister,
+    status: Cell<PpuStatusRegister>,
+    address: PpuAddressRegister,
+    oam_address: u8,
+    open_bus: Cell<u8>,
+    read_buffer: Cell<u8>,
+    framebuffer: FrameBuffer,
+    renderer: RenderState,
+}
 
-    // PPU 的8个寄存器
-    reg_ppu_controller: PpuControlRegister,
-    reg_ppu_mask: PpuMaskRegister,
-    reg_ppu_status: RefCell<PpuStatusRegister>,
-    reg_scroll: RefCell<PpuScrollRegister>,
-    reg_address: RefCell<PpuAddressRegister>,
-    reg_oam_address: u8,
-    reg_oam_data: u8,
+impl Default for PpuImpl {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PpuImpl {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             ppu_bus: None,
-            scanline: 0,
+            scanline: 261,
             cycle: 0,
             frame_counter: 0,
-            nmi_interrupt: false,
+            odd_frame: false,
+            skip_frame_dot: false,
+            total_cycles: 0,
+            bus_address: Cell::new(0),
+            nmi_interrupt: Cell::new(false),
+            nmi_delay: Cell::new(0),
+            suppress_vblank: Cell::new(false),
             oam: Oam::new(),
-            reg_ppu_controller: PpuControlRegister::default(),
-            reg_ppu_mask: PpuMaskRegister::default(),
-            reg_ppu_status: RefCell::new(PpuStatusRegister::default()),
-            reg_scroll: RefCell::new(PpuScrollRegister::default()),
-            reg_address: RefCell::new(PpuAddressRegister::default()),
-            reg_oam_address: 0,
-            reg_oam_data: 0,
+            control: Default::default(),
+            mask: Default::default(),
+            status: Cell::new(PpuStatusRegister::default()),
+            address: Default::default(),
+            oam_address: 0,
+            open_bus: Cell::new(0),
+            read_buffer: Cell::new(0),
+            framebuffer: FrameBuffer::new(),
+            renderer: RenderState::default(),
         }
     }
+    pub fn framebuffer(&self) -> &FrameBuffer {
+        &self.framebuffer
+    }
+    pub fn frame_counter(&self) -> u64 {
+        self.frame_counter
+    }
+    pub fn position(&self) -> (u16, u16) {
+        (self.scanline, self.cycle)
+    }
 
+    fn observe_address(&self, address: u16) {
+        self.bus_address.set(address & 0x3fff);
+        self.ppu_bus
+            .as_ref()
+            .expect("PPU bus not attached")
+            .borrow()
+            .observe_ppu_address(address & 0x3fff, self.total_cycles);
+    }
+    fn read(&self, address: u16) -> u8 {
+        self.ppu_bus
+            .as_ref()
+            .expect("PPU bus not attached")
+            .borrow()
+            .read(address & 0x3fff)
+    }
+    fn rendering(&self) -> bool {
+        self.mask.show_background || self.mask.show_sprites
+    }
     fn increment_address(&self) {
-        let increment = self.reg_ppu_controller.vram_increment_value();
-        self.reg_address.borrow_mut().increment(increment);
+        if self.rendering() && (self.scanline < 240 || self.scanline == 261) {
+            self.address.increment_x();
+            self.address.increment_y();
+        } else {
+            self.address
+                .v
+                .set((self.address.v.get() + self.control.vram_increment_value() as u16) & 0x7fff);
+        }
     }
 }
 
 impl Ppu for PpuImpl {
+    fn read_open_bus(&self) -> u8 {
+        self.open_bus.get()
+    }
+    fn write_open_bus(&mut self, value: u8) {
+        self.open_bus.set(value);
+    }
     fn write_reg_control(&mut self, value: u8) {
-        let before_nmi_status = self.reg_ppu_controller.nmi_enable;
-        // 更新控制寄存器
-        self.reg_ppu_controller = PpuControlRegister::from(value);
-
-        // 如果在vblank期间 NMI 使能状态从禁用变为使能，触发 NMI 中断
-        if !before_nmi_status
-            && self.reg_ppu_controller.nmi_enable
-            && self.reg_ppu_status.borrow().vblank
-        {
-            self.nmi_interrupt = true;
+        self.open_bus.set(value);
+        let old_nmi = self.control.nmi_enable;
+        self.control = value.into();
+        self.address.t = (self.address.t & !0x0c00) | ((value as u16 & 3) << 10);
+        if !old_nmi && self.control.nmi_enable && self.status.get().vblank {
+            self.nmi_delay.set(2);
+        }
+        if !self.control.nmi_enable {
+            self.nmi_interrupt.set(false);
+            self.nmi_delay.set(0);
         }
     }
-
     fn write_reg_mask(&mut self, value: u8) {
-        self.reg_ppu_mask = PpuMaskRegister::from(value);
+        self.open_bus.set(value);
+        self.mask = value.into();
     }
-
     fn read_reg_status(&self) -> u8 {
-        let value = self.reg_ppu_status.borrow().clone().into();
-        self.reg_ppu_status.borrow_mut().vblank = false; // 读取后清除 VBlank 标志
-        self.reg_address.borrow_mut().reset_latch();
-        self.reg_scroll.borrow_mut().reset_latch();
+        let status: u8 = self.status.get().into();
+        let value = status | (self.open_bus.get() & 0x1f);
+        let mut state = self.status.get();
+        state.vblank = false;
+        self.status.set(state);
+        self.address.second_write.set(false);
+        self.nmi_interrupt.set(false);
+        self.nmi_delay.set(0);
+        if self.scanline == 241 && self.cycle == 1 {
+            self.suppress_vblank.set(true);
+        }
+        self.open_bus.set(value);
         value
     }
-
     fn write_reg_oam_addr(&mut self, value: u8) {
-        self.reg_oam_address = value;
+        self.open_bus.set(value);
+        self.oam_address = value;
     }
-
     fn read_reg_oam_data(&self) -> u8 {
-        self.reg_oam_data
-    }
-
-    fn write_reg_oam_data(&mut self, value: u8) {
-        self.reg_oam_data = value;
-        self.reg_oam_address = self.reg_oam_address.wrapping_add(1);
-    }
-
-    fn write_reg_scroll(&mut self, value: u8) {
-        self.reg_scroll.borrow_mut().write(value);
-    }
-
-    fn write_reg_address(&mut self, value: u8) {
-        self.reg_address.borrow_mut().update(value);
-    }
-
-    fn read_reg_data(&self) -> u8 {
-        let addr = self.reg_address.borrow().get();
-        let value = self
-            .ppu_bus
-            .as_ref()
-            .expect("PPU bus not attached")
-            .borrow()
-            .read(addr);
-
-        // 更新地址
-        self.increment_address();
-
+        let value = self.oam.data[self.oam_address as usize];
+        self.open_bus.set(value);
         value
     }
-
+    fn write_reg_oam_data(&mut self, value: u8) {
+        self.open_bus.set(value);
+        self.oam.data[self.oam_address as usize] = if self.oam_address & 3 == 2 {
+            value & 0xe3
+        } else {
+            value
+        };
+        self.oam_address = self.oam_address.wrapping_add(1);
+    }
+    fn write_reg_scroll(&mut self, value: u8) {
+        self.open_bus.set(value);
+        self.address.write_scroll(value);
+    }
+    fn write_reg_address(&mut self, value: u8) {
+        self.open_bus.set(value);
+        self.address.write_address(value);
+        if !self.address.second_write.get() && !self.rendering() {
+            self.observe_address(self.address.v.get());
+        }
+    }
+    fn read_reg_data(&self) -> u8 {
+        let address = self.address.v.get() & 0x3fff;
+        self.observe_address(address);
+        let data = self.read(address);
+        let value = if address >= 0x3f00 {
+            self.read_buffer.set(self.read(address - 0x1000));
+            let mask = if self.mask.grayscale { 0x30 } else { 0x3f };
+            (data & mask) | (self.open_bus.get() & 0xc0)
+        } else {
+            self.read_buffer.replace(data)
+        };
+        self.open_bus.set(value);
+        self.increment_address();
+        self.observe_address(self.address.v.get());
+        value
+    }
     fn write_reg_data(&mut self, value: u8) {
-        let addr = self.reg_address.borrow().get();
+        self.open_bus.set(value);
+        self.observe_address(self.address.v.get());
         self.ppu_bus
             .as_ref()
             .expect("PPU bus not attached")
             .borrow_mut()
-            .write(addr, value);
-
-        // 更新地址
+            .write(self.address.v.get() & 0x3fff, value);
         self.increment_address();
+        self.observe_address(self.address.v.get());
     }
-
     fn reset(&mut self) {
-        self.cycle = 340;
-        self.scanline = 240;
-        self.frame_counter = 0;
-        self.reg_ppu_controller = PpuControlRegister::default();
-        self.reg_ppu_mask = PpuMaskRegister::default();
-        *self.reg_ppu_status.borrow_mut() = PpuStatusRegister::default();
+        let bus = self.ppu_bus.take();
+        *self = Self::new();
+        self.ppu_bus = bus;
     }
-
     fn clock(&mut self) {
-        self.cycle += 1;
-        if self.cycle >= 341 {
-            self.cycle = 0;
-            self.scanline += 1;
-
-            if self.scanline == 241 {
-                self.reg_ppu_status.borrow_mut().vblank = true;
-                self.reg_ppu_status.borrow_mut().sprite_0_hit = false;
-                if self.reg_ppu_controller.nmi_enable {
-                    self.nmi_interrupt = true;
-                }
-            }
-
-            if self.scanline >= 262 {
-                self.scanline = 0;
-                self.frame_counter += 1;
-                self.nmi_interrupt = false;
-                self.reg_ppu_status.borrow_mut().vblank = false;
-                self.reg_ppu_status.borrow_mut().sprite_0_hit = false;
+        // The NMI edge takes two PPU dots to reach the CPU; $2002/$2000 can
+        // cancel it during that interval. An edge already latched remains pending.
+        let delay = self.nmi_delay.get();
+        if delay != 0 {
+            self.nmi_delay.set(delay - 1);
+            if delay == 1 {
+                self.nmi_interrupt.set(true);
             }
         }
+        if self.scanline == 261 && self.cycle == 1 {
+            self.status.set(PpuStatusRegister::default());
+            self.nmi_delay.set(0);
+            self.suppress_vblank.set(false);
+        }
+        if self.scanline == 241 && self.cycle == 1 {
+            if !self.suppress_vblank.get() {
+                let mut status = self.status.get();
+                status.vblank = true;
+                self.status.set(status);
+                if self.control.nmi_enable {
+                    self.nmi_delay.set(2);
+                }
+            }
+            self.frame_counter = self.frame_counter.wrapping_add(1);
+        }
+        self.render_clock();
+        self.observe_address(self.bus_address.get());
+        self.total_cycles = self.total_cycles.wrapping_add(1);
+        // Latch rendering one dot before the odd-frame end decision.
+        if self.scanline == 261 && self.cycle == 338 {
+            self.skip_frame_dot = self.rendering();
+        }
+        if self.scanline == 261 && self.cycle == 339 && self.odd_frame && self.skip_frame_dot {
+            self.cycle = 0;
+            self.scanline = 0;
+            self.odd_frame = false;
+        } else if self.cycle == 340 {
+            self.cycle = 0;
+            self.scanline += 1;
+            if self.scanline == 262 {
+                self.scanline = 0;
+                self.odd_frame = !self.odd_frame;
+            }
+        } else {
+            self.cycle += 1;
+        }
     }
-
     fn attach_bus(&mut self, bus: Rc<RefCell<dyn BusAdapter>>) {
         self.ppu_bus = Some(bus);
     }
-
     fn check_nmi_interrupt(&self) -> bool {
-        self.nmi_interrupt
+        self.nmi_interrupt.get()
     }
-
     fn clear_nmi_interrupt(&mut self) {
-        self.nmi_interrupt = false;
+        self.nmi_interrupt.set(false);
+        self.nmi_delay.set(0);
     }
 }

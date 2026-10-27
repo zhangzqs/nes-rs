@@ -3,6 +3,7 @@ resolver = "2"
 
 members = [
     "nes-base",
+    "nes-apu",
     "nes-cpu",
     "nes-ram",
     "nes-bus",
@@ -13,8 +14,8 @@ members = [
 ]
 
 [profile.release]
-opt-level = "s"
+opt-level = 3
 
 [profile.dev]
 debug = true
-opt-level = "z"
+opt-level = 1

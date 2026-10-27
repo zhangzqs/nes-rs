@@ -260,6 +260,15 @@ impl OpcodeManager {
         op_args_table.insert(0xd4, (IGN, ZeroPageX, 4, false));
         op_args_table.insert(0xf4, (IGN, ZeroPageX, 4, false));
 
+        op_args_table.insert(0xab, (LAX, Immediate, 2, false));
+        op_args_table.insert(0x8b, (XAA, Immediate, 2, false));
+        op_args_table.insert(0x93, (AHX, IndirectIndexed, 6, false));
+        op_args_table.insert(0x9f, (AHX, AbsoluteY, 5, false));
+        op_args_table.insert(0x9b, (TAS, AbsoluteY, 5, false));
+        op_args_table.insert(0x9e, (SHX, AbsoluteY, 5, false));
+        op_args_table.insert(0x9c, (SHY, AbsoluteX, 5, false));
+        op_args_table.insert(0xbb, (LAS, AbsoluteY, 4, true));
+
         let mut op_table: HashMap<u8, Op> = HashMap::new();
         for (opcode, (instruction, mode, cycles, increase_cycle_when_cross_page)) in op_args_table {
             op_table.insert(

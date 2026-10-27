@@ -13,6 +13,11 @@ pub struct CpuImpl {
     context: Context,
     interrupt: Option<Interrupt>,
     total_cycles: u32,
+    instruction_pending: bool,
+    defer_interrupt: bool,
+    irq_line: bool,
+    irq_sampled: bool,
+    halted: Option<(u16, u8)>,
 }
 
 impl Default for CpuImpl {
@@ -27,19 +32,35 @@ impl CpuImpl {
             context: Context::new(),
             interrupt: None,
             total_cycles: 0,
+            instruction_pending: false,
+            defer_interrupt: false,
+            irq_line: false,
+            irq_sampled: false,
+            halted: None,
         }
     }
 }
 
 impl Cpu for CpuImpl {
+    fn halt_reason(&self) -> Option<(u16, u8)> {
+        self.halted
+    }
     fn set_reg_pc(&mut self, pc: u16) {
         self.context.reg_pc = pc;
         self.context.remaining_cycles = 0; // 重置剩余周期
+        self.instruction_pending = false;
+        self.irq_sampled = false;
     }
 
     fn reset(&mut self) {
         execute_interrupt(&mut self.context, Interrupt::Reset);
-        self.total_cycles = 7;
+        self.total_cycles = 0;
+        self.interrupt = None;
+        self.instruction_pending = false;
+        self.defer_interrupt = false;
+        self.irq_line = false;
+        self.halted = None;
+        self.irq_sampled = false;
     }
 
     fn increase_cycles(&mut self, cycles: u32) {
@@ -47,37 +68,72 @@ impl Cpu for CpuImpl {
     }
 
     fn trigger_interrupt(&mut self, interrupt: Interrupt) {
-        if self.interrupt.is_none() {
-            self.interrupt = Some(interrupt);
+        if matches!(interrupt, Interrupt::Irq) {
+            self.irq_line = true;
             return;
         }
-        // 如果已经有中断在等待，则不处理新的中断
-        // 这可以防止在处理中断时再次触发中断
-        // 例如在 NMI 中断处理期间不允许 IRQ 中断
-        log::warn!(
-            "CPU already has an interrupt pending, ignoring new interrupt: {:?}",
-            interrupt
-        );
+        if self.interrupt.is_none() || matches!(interrupt, Interrupt::Nmi | Interrupt::Reset) {
+            if matches!(interrupt, Interrupt::Nmi) {
+                // The CPU polls before the final bus cycle. An edge after that poll
+                // is serviced after the following instruction.
+                self.defer_interrupt = self.context.remaining_cycles == 0;
+            }
+            self.interrupt = Some(interrupt);
+        }
+    }
+
+    fn set_irq_line(&mut self, asserted: bool) {
+        self.irq_line = asserted;
     }
 
     fn clock(&mut self) {
+        if self.halted.is_some() {
+            self.total_cycles = self.total_cycles.wrapping_add(1);
+            return;
+        }
         // 执行周期
         if self.context.remaining_cycles > 0 {
             self.context.remaining_cycles -= 1;
-            self.total_cycles += 1;
+            if self.context.remaining_cycles == 1 && self.instruction_pending {
+                self.irq_sampled = self.irq_line && self.context.reg_status & 4 == 0;
+            }
+            if self.context.remaining_cycles == 0 && self.instruction_pending {
+                self.instruction_pending = false;
+                let instruction = self.context.op.unwrap().instruction;
+                execute_instruction(&mut self.context, instruction);
+            }
+            self.total_cycles = self.total_cycles.wrapping_add(1);
             return;
         }
 
         // 中断周期
-        if let Some(interrupt) = self.interrupt.take() {
+        let interrupt = if self.defer_interrupt {
+            self.defer_interrupt = false;
+            None
+        } else {
+            self.interrupt
+                .take()
+                .or_else(|| self.irq_sampled.then_some(Interrupt::Irq))
+        };
+        if let Some(interrupt) = interrupt {
+            self.irq_sampled = false;
             execute_interrupt(&mut self.context, interrupt);
-            self.interrupt = None;
+            self.context.remaining_cycles -= 1;
+            self.total_cycles = self.total_cycles.wrapping_add(1);
             return;
         }
 
         // 取指 && 译码
         let reg_pc = self.context.reg_pc; // 取指
         let opcode = self.context.read_bus_8bit(reg_pc); // 从总线读取指令
+        if matches!(
+            opcode,
+            0x02 | 0x12 | 0x22 | 0x32 | 0x42 | 0x52 | 0x62 | 0x72 | 0x92 | 0xb2 | 0xd2 | 0xf2
+        ) {
+            self.halted = Some((reg_pc, opcode));
+            self.total_cycles = self.total_cycles.wrapping_add(1);
+            return;
+        }
         let op = opcode::get_op(opcode); // 指令译码
         self.context.op = Some(op);
 
@@ -106,17 +162,12 @@ impl Cpu for CpuImpl {
             self.context.reg_status
         );
         self.increase_cycles(op.cycles as u32);
-        execute_instruction(&mut self.context, op.instruction);
-        debug!(
-            "Instruction executed: {:?}, PC: {:04X}, A: {:02X}, X: {:02X}, Y: {:02X}, SP: {:02X}, Status: {:02X}",
-            op.instruction,
-            self.context.reg_pc,
-            self.context.reg_a,
-            self.context.reg_x,
-            self.context.reg_y,
-            self.context.reg_sp,
-            self.context.reg_status
-        );
+        self.instruction_pending = true;
+        self.context.remaining_cycles -= 1;
+        if self.context.remaining_cycles == 1 {
+            self.irq_sampled = self.irq_line && self.context.reg_status & 4 == 0;
+        }
+        self.total_cycles = self.total_cycles.wrapping_add(1);
     }
 
     fn dump_state(&self) -> CpuState {

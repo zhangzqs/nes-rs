@@ -1,10 +1,14 @@
+mod console;
+pub mod joypad;
+pub use console::Console;
+
 use std::{cell::RefCell, rc::Rc};
 
 use nes_base::{
     ApuAdapterForCpuBus, Bus, BusAdapter, Cartridge, CartridgeAdapterForCPUBus, Cpu, DmaForCpuBus,
-    Interrupt, Joypad, JoypadAdapterForCpuBus, MirrorBusAdapterForPpuBus,
-    NameTablesAdapterForPpuBus, PalettesTablesAdapterForPpuBus, PatternTablesAdapterForPpuBus, Ppu,
-    PpuBusAdapterForCpuBus, Ram, RamAdapterForCpuBus,
+    Interrupt, Joypad, JoypadAdapterForCpuBus, NameTablesAdapterForPpuBus,
+    PalettesTablesAdapterForPpuBus, PatternTablesAdapterForPpuBus, Ppu, PpuBusAdapterForCpuBus,
+    Ram, RamAdapterForCpuBus,
 };
 
 pub struct BoardImpl {
@@ -34,20 +38,17 @@ impl BoardImpl {
         self.ppu.borrow_mut().attach_bus(self.ppu_bus.clone()); // PPU 连接到 PPU 总线上
 
         // 连接各个设备到PPU总线上
-        let ppu_bus_devices: [Rc<RefCell<dyn BusAdapter>>; 4] = [
+        let ppu_bus_devices: [Rc<RefCell<dyn BusAdapter>>; 3] = [
             Rc::new(RefCell::new(PatternTablesAdapterForPpuBus(
                 self.cartridge.clone(),
             ))),
             Rc::new(RefCell::new(NameTablesAdapterForPpuBus {
                 vram: self.ppu_name_tables_ram.clone(),
-                mirroring: self.cartridge.borrow().mirroring(),
+                cartridge: self.cartridge.clone(),
             })),
             Rc::new(RefCell::new(PalettesTablesAdapterForPpuBus {
                 vram: self.ppu_palettes_tables_ram.clone(),
             })),
-            Rc::new(RefCell::new(MirrorBusAdapterForPpuBus(
-                self.ppu_bus.clone(),
-            ))),
         ];
         for device in ppu_bus_devices {
             self.ppu_bus.borrow_mut().register_device(device);
@@ -63,12 +64,10 @@ impl BoardImpl {
             Rc::new(RefCell::new(JoypadAdapterForCpuBus {
                 joypad1: self.joypad1.clone(),
                 joypad2: self.joypad2.clone(),
+                apu: self.apu.clone(),
             })),
             Rc::new(RefCell::new(ApuAdapterForCpuBus(self.apu.clone()))),
-            Rc::new(RefCell::new(DmaForCpuBus {
-                cpu_bus: self.cpu_bus.clone(),
-                cpu: self.cpu.clone(),
-            })),
+            Rc::new(RefCell::new(DmaForCpuBus::default())),
         ];
         for device in cpu_bus_devices {
             self.cpu_bus.borrow_mut().register_device(device);
@@ -76,12 +75,33 @@ impl BoardImpl {
     }
 
     pub fn reset(&mut self) {
+        self.cartridge.borrow_mut().reset();
         self.cpu.borrow_mut().reset(); // 重置 CPU
         self.ppu.borrow_mut().reset(); // 重置 PPU
-        self.ram.borrow_mut().reset(); // 重置 RAM
+        self.apu.borrow_mut().reset();
+        self.cpu_bus.borrow().take_dma_request();
     }
 
     pub fn clock(&mut self) {
+        // Transfer only at an instruction boundary, with no CPU/bus borrow held.
+        if self.cpu.borrow().dump_state().remaining_cycles == 0 {
+            let page = self.cpu_bus.borrow().take_dma_request();
+            if let Some(page) = page {
+                for offset in 0..256 {
+                    let value = self.cpu_bus.borrow().read((page as u16) << 8 | offset);
+                    self.ppu.borrow_mut().write_reg_oam_data(value);
+                }
+                let parity = self.cpu.borrow().dump_state().total_cycles & 1;
+                self.cpu.borrow_mut().increase_cycles(513 + parity);
+            }
+        }
+        let dmc_address = self.apu.borrow_mut().take_dmc_request();
+        if let Some(address) = dmc_address {
+            let sample = self.cpu_bus.borrow().read(address);
+            self.apu.borrow_mut().supply_dmc_sample(sample);
+            self.cpu.borrow_mut().increase_cycles(4);
+        }
+        self.cartridge.borrow_mut().clock_cpu();
         self.cpu.borrow_mut().clock();
 
         for _ in 0..3 {
@@ -95,10 +115,7 @@ impl BoardImpl {
         }
 
         self.apu.borrow_mut().clock();
-        if self.apu.borrow().check_irq_interrupt() {
-            // 如果 APU 检测到 IRQ 中断，则触发 CPU 的 IRQ 中断
-            self.cpu.borrow_mut().trigger_interrupt(Interrupt::Irq);
-            self.apu.borrow_mut().clear_irq_interrupt();
-        }
+        let irq = self.apu.borrow().check_irq_interrupt() || self.cartridge.borrow().irq_pending();
+        self.cpu.borrow_mut().set_irq_line(irq);
     }
 }

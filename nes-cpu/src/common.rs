@@ -1,3 +1,5 @@
+// Preserve the standard uppercase 6502 instruction mnemonics.
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum InstructionEnum {
     ADC,
@@ -70,6 +72,12 @@ pub enum InstructionEnum {
     SRE,
     SKB,
     IGN,
+    XAA,
+    AHX,
+    TAS,
+    SHX,
+    SHY,
+    LAS,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

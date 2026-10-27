@@ -33,31 +33,31 @@ impl From<u8> for PpuMaskRegister {
     }
 }
 
-impl Into<u8> for PpuMaskRegister {
-    fn into(self) -> u8 {
+impl From<PpuMaskRegister> for u8 {
+    fn from(val: PpuMaskRegister) -> Self {
         let mut value = 0;
-        if self.grayscale {
+        if val.grayscale {
             value |= 0b1;
         }
-        if self.show_background_left {
+        if val.show_background_left {
             value |= 0b10;
         }
-        if self.show_sprites_left {
+        if val.show_sprites_left {
             value |= 0b100;
         }
-        if self.show_background {
+        if val.show_background {
             value |= 0b1000;
         }
-        if self.show_sprites {
+        if val.show_sprites {
             value |= 0b10000;
         }
-        if self.emphasize_red {
+        if val.emphasize_red {
             value |= 0b100000;
         }
-        if self.emphasize_green {
+        if val.emphasize_green {
             value |= 0b1000000;
         }
-        if self.emphasize_blue {
+        if val.emphasize_blue {
             value |= 0b10000000;
         }
         value

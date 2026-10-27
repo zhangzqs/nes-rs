@@ -46,7 +46,7 @@ impl From<&[u8; 16]> for NESHeader {
         };
         let has_battery_backed = bytes[6].get_bit(1);
         let has_trainer = bytes[6].get_bit(2);
-        let mapper_id = (bytes[7] >> 4) | (bytes[6] & 0xF0);
+        let mapper_id = (bytes[7] & 0xF0) | (bytes[6] >> 4);
 
         Self {
             magic,
@@ -67,23 +67,55 @@ const TRAINER_SIZE: usize = 0x0200; // 512 bytes
 impl NESFile {
     /// 从文件路径加载 NES 文件
     pub fn from_file(path: &str) -> Self {
-        let bytes = std::fs::read(path)
-            .unwrap_or_else(|_| panic!("Failed to read NES file from path: {}", path));
-        Self::new(bytes)
+        Self::try_from_file(path).expect("Failed to load iNES ROM")
+    }
+
+    pub fn try_from_file(path: impl AsRef<std::path::Path>) -> Result<Self, String> {
+        let path = path.as_ref();
+        let bytes = std::fs::read(path).map_err(|error| format!("{}: {error}", path.display()))?;
+        Self::try_new(bytes)
     }
 
     pub fn new(bytes: Vec<u8>) -> Self {
-        let header = NESHeader::from(&bytes[0..16].try_into().expect("Invalid NES header length"));
-        if header.magic != [0x4E, 0x45, 0x53, 0x1A] {
-            panic!("Invalid NES file magic number");
+        Self::try_new(bytes).expect("Invalid iNES ROM")
+    }
+
+    pub fn try_new(bytes: Vec<u8>) -> Result<Self, String> {
+        let raw: &[u8; 16] = bytes
+            .get(..16)
+            .ok_or("Truncated iNES header")?
+            .try_into()
+            .unwrap();
+        let header = NESHeader::from(raw);
+        if header.magic != *b"NES\x1a" {
+            return Err("Invalid iNES signature".into());
+        }
+        if raw[7] & 0x0c == 0x08 {
+            return Err("NES 2.0 is not supported".into());
+        }
+        if raw[7] & 3 != 0 {
+            return Err("VS/PlayChoice ROMs are not supported".into());
+        }
+        if raw[9] & 1 != 0 {
+            return Err("PAL ROMs are not supported; use an NTSC ROM".into());
+        }
+        if raw[8] > 1 {
+            return Err("PRG-RAM larger than 8 KiB is not supported".into());
         }
         if header.prg_banks == 0 {
-            panic!("NES file must have at least one PRG-ROM bank");
+            return Err("ROM has no PRG banks".into());
         }
-        if header.chr_banks == 0 {
-            panic!("NES file must have at least one CHR-ROM bank");
+        let required = 16
+            + if header.has_trainer { TRAINER_SIZE } else { 0 }
+            + header.prg_banks as usize * PRG_BANK_SIZE
+            + header.chr_banks as usize * CHR_BANK_SIZE;
+        if bytes.len() < required {
+            return Err(format!(
+                "Truncated iNES ROM: expected {required} bytes, got {}",
+                bytes.len()
+            ));
         }
-        Self { bytes, header }
+        Ok(Self { bytes, header })
     }
 
     pub fn header(&self) -> &NESHeader {

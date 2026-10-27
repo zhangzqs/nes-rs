@@ -12,6 +12,7 @@ pub trait Joypad {
 pub struct JoypadAdapterForCpuBus {
     pub joypad1: Option<Rc<RefCell<dyn Joypad>>>,
     pub joypad2: Option<Rc<RefCell<dyn Joypad>>>,
+    pub apu: Rc<RefCell<dyn crate::Apu>>,
 }
 
 impl Reader for JoypadAdapterForCpuBus {
@@ -38,18 +39,12 @@ impl Reader for JoypadAdapterForCpuBus {
 
 impl Writer for JoypadAdapterForCpuBus {
     fn write(&mut self, addr: u16, data: u8) {
-        match addr {
-            0x4016 => {
-                if let Some(joypad) = &self.joypad1 {
-                    joypad.borrow_mut().write_reg_strobe(data);
-                }
+        if addr == 0x4016 {
+            for joypad in [&self.joypad1, &self.joypad2].into_iter().flatten() {
+                joypad.borrow_mut().write_reg_strobe(data);
             }
-            0x4017 => {
-                if let Some(joypad) = &self.joypad2 {
-                    joypad.borrow_mut().write_reg_strobe(data);
-                }
-            }
-            _ => panic!("Joypad write to unsupported address: {:#04X}", addr),
+        } else if addr == 0x4017 {
+            self.apu.borrow_mut().write_reg_frame_counter(data);
         }
     }
 }

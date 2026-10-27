@@ -160,7 +160,7 @@ impl Context {
 
 // 分支成功辅助函数
 fn branch_success(ctx: &mut Context) {
-    if is_page_crossed(ctx.data_address, ctx.reg_pc + 1) {
+    if is_page_crossed(ctx.data_address, ctx.reg_pc) {
         ctx.remaining_cycles += 2;
     } else {
         ctx.remaining_cycles += 1;
@@ -264,10 +264,9 @@ fn instruction_bvs(ctx: &mut Context) {
 }
 
 fn instruction_brk(ctx: &mut Context) {
-    ctx.push_stack_16bit(ctx.reg_pc + 1);
-    ctx.push_stack(ctx.reg_status);
+    ctx.push_stack_16bit(ctx.reg_pc.wrapping_add(1));
+    ctx.push_stack(ctx.reg_status | 0x30);
     ctx.set_status_flag(StatusFlag::InterruptDisable, true);
-    ctx.set_status_flag(StatusFlag::BreakCommand, true);
     ctx.reg_pc = ctx.read_bus_16bit(0xFFFE);
 }
 
@@ -458,10 +457,10 @@ fn instruction_rol(ctx: &mut Context) {
     let tmp = (tmp << 1) | old_carry as u8;
     if ctx.get_op_mode() == AddressingMode::Accumulator {
         ctx.reg_a = tmp;
-        ctx.set_status_flag(StatusFlag::Zero, ctx.reg_a == 0);
     } else {
         ctx.write_bus_8bit(ctx.data_address, tmp);
     }
+    ctx.set_status_flag(StatusFlag::Zero, tmp == 0);
     ctx.set_status_flag(StatusFlag::Negative, get_bit(tmp, 7));
 }
 
@@ -476,10 +475,10 @@ fn instruction_ror(ctx: &mut Context) {
     let tmp = (tmp >> 1) | ((old_carry as u8) << 7);
     if ctx.get_op_mode() == AddressingMode::Accumulator {
         ctx.reg_a = tmp;
-        ctx.set_status_flag(StatusFlag::Zero, ctx.reg_a == 0);
     } else {
         ctx.write_bus_8bit(ctx.data_address, tmp);
     }
+    ctx.set_status_flag(StatusFlag::Zero, tmp == 0);
     ctx.set_status_flag(StatusFlag::Negative, get_bit(tmp, 7));
 }
 
@@ -500,7 +499,7 @@ fn instruction_rti(ctx: &mut Context) {
 }
 
 fn instruction_rts(ctx: &mut Context) {
-    ctx.reg_pc = ctx.pop_stack_16bit() + 1;
+    ctx.reg_pc = ctx.pop_stack_16bit().wrapping_add(1);
 }
 
 fn instruction_sbc(ctx: &mut Context) {
@@ -577,8 +576,11 @@ fn instruction_tya(ctx: &mut Context) {
 
 // 非法/复合指令
 fn instruction_alr(ctx: &mut Context) {
-    instruction_and(ctx);
-    instruction_lsr(ctx);
+    let value = ctx.reg_a & ctx.read_bus_8bit(ctx.data_address);
+    ctx.set_status_flag(StatusFlag::Carry, value & 1 != 0);
+    ctx.reg_a = value >> 1;
+    ctx.set_status_flag(StatusFlag::Zero, ctx.reg_a == 0);
+    ctx.set_status_flag(StatusFlag::Negative, false);
 }
 
 fn instruction_anc(ctx: &mut Context) {
@@ -590,15 +592,24 @@ fn instruction_anc(ctx: &mut Context) {
 }
 
 fn instruction_arr(ctx: &mut Context) {
-    instruction_and(ctx);
-    instruction_ror(ctx);
+    let value = ctx.reg_a & ctx.read_bus_8bit(ctx.data_address);
+    ctx.reg_a = (value >> 1) | ((ctx.get_status_flag(StatusFlag::Carry) as u8) << 7);
+    ctx.set_status_flag(StatusFlag::Carry, ctx.reg_a & 0x40 != 0);
+    ctx.set_status_flag(
+        StatusFlag::Overflow,
+        ((ctx.reg_a >> 6) ^ (ctx.reg_a >> 5)) & 1 != 0,
+    );
+    ctx.set_status_flag(StatusFlag::Zero, ctx.reg_a == 0);
+    ctx.set_status_flag(StatusFlag::Negative, ctx.reg_a & 0x80 != 0);
 }
 
 fn instruction_axs(ctx: &mut Context) {
-    ctx.reg_x &= ctx.reg_a;
-    ctx.set_status_flag(StatusFlag::Carry, false);
+    let value = ctx.read_bus_8bit(ctx.data_address);
+    let combined = ctx.reg_x & ctx.reg_a;
+    ctx.reg_x = combined.wrapping_sub(value);
+    ctx.set_status_flag(StatusFlag::Carry, combined >= value);
     ctx.set_status_flag(StatusFlag::Zero, ctx.reg_x == 0);
-    ctx.set_status_flag(StatusFlag::Negative, get_bit(ctx.reg_x, 7));
+    ctx.set_status_flag(StatusFlag::Negative, ctx.reg_x & 0x80 != 0);
 }
 
 fn instruction_lax(ctx: &mut Context) {
@@ -641,6 +652,44 @@ fn instruction_slo(ctx: &mut Context) {
 fn instruction_sre(ctx: &mut Context) {
     instruction_lsr(ctx);
     instruction_eor(ctx);
+}
+
+// Unstable stores mask with the unindexed high byte and can corrupt the address on a page crossing.
+fn store_high(ctx: &mut Context, value: u8, index: u8) {
+    let base = ctx.data_address.wrapping_sub(index as u16);
+    let value = value & ((base >> 8) as u8).wrapping_add(1);
+    let address = if is_page_crossed(base, ctx.data_address) {
+        (value as u16) << 8 | (ctx.data_address & 0xff)
+    } else {
+        ctx.data_address
+    };
+    ctx.write_bus_8bit(address, value);
+}
+fn instruction_shx(ctx: &mut Context) {
+    store_high(ctx, ctx.reg_x, ctx.reg_y);
+}
+fn instruction_shy(ctx: &mut Context) {
+    store_high(ctx, ctx.reg_y, ctx.reg_x);
+}
+fn instruction_ahx(ctx: &mut Context) {
+    store_high(ctx, ctx.reg_a & ctx.reg_x, ctx.reg_y);
+}
+fn instruction_tas(ctx: &mut Context) {
+    ctx.reg_sp = ctx.reg_a & ctx.reg_x;
+    store_high(ctx, ctx.reg_sp, ctx.reg_y);
+}
+fn instruction_las(ctx: &mut Context) {
+    let value = ctx.read_bus_8bit(ctx.data_address) & ctx.reg_sp;
+    ctx.reg_a = value;
+    ctx.reg_x = value;
+    ctx.reg_sp = value;
+    ctx.set_status_flag(StatusFlag::Zero, value == 0);
+    ctx.set_status_flag(StatusFlag::Negative, value & 0x80 != 0);
+}
+fn instruction_xaa(ctx: &mut Context) {
+    ctx.reg_a = ctx.reg_x & ctx.read_bus_8bit(ctx.data_address);
+    ctx.set_status_flag(StatusFlag::Zero, ctx.reg_a == 0);
+    ctx.set_status_flag(StatusFlag::Negative, ctx.reg_a & 0x80 != 0);
 }
 
 // NOP/IGN/SKB
@@ -726,6 +775,12 @@ impl InstructionManager {
         m.insert(InstructionEnum::NOP, instruction_nop);
         m.insert(InstructionEnum::SKB, instruction_skb);
         m.insert(InstructionEnum::IGN, instruction_ign);
+        m.insert(InstructionEnum::XAA, instruction_xaa);
+        m.insert(InstructionEnum::AHX, instruction_ahx);
+        m.insert(InstructionEnum::TAS, instruction_tas);
+        m.insert(InstructionEnum::SHX, instruction_shx);
+        m.insert(InstructionEnum::SHY, instruction_shy);
+        m.insert(InstructionEnum::LAS, instruction_las);
 
         Self { instructions: m }
     }
@@ -743,7 +798,7 @@ pub fn execute_instruction(ctx: &mut Context, instruction: InstructionEnum) {
 
 fn interrupt_nmi(ctx: &mut Context) {
     ctx.push_stack_16bit(ctx.reg_pc);
-    ctx.push_stack(ctx.reg_status | 0x30);
+    ctx.push_stack((ctx.reg_status | 0x20) & !0x10);
     ctx.set_status_flag(StatusFlag::InterruptDisable, true);
     ctx.reg_pc = ctx.read_bus_16bit(0xFFFA);
 
@@ -759,11 +814,9 @@ fn interrupt_reset(ctx: &mut Context) {
 }
 
 fn interrupt_irq(ctx: &mut Context) {
-    if ctx.get_status_flag(StatusFlag::InterruptDisable) {
-        return;
-    }
+    // I was sampled by the CPU before the final instruction cycle.
     ctx.push_stack_16bit(ctx.reg_pc);
-    ctx.push_stack(ctx.reg_status | 0x30);
+    ctx.push_stack((ctx.reg_status | 0x20) & !0x10);
     ctx.set_status_flag(StatusFlag::InterruptDisable, true);
     ctx.reg_pc = ctx.read_bus_16bit(0xFFFE);
 

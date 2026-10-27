@@ -1,9 +1,12 @@
-use core::panic;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{Bus, BusAdapter, Cartridge, Mirroring, Ram, Reader, Writer};
 
 pub trait Ppu {
+    fn read_open_bus(&self) -> u8 {
+        0
+    }
+    fn write_open_bus(&mut self, _value: u8) {}
     fn write_reg_control(&mut self, value: u8);
 
     fn write_reg_mask(&mut self, value: u8);
@@ -40,7 +43,7 @@ impl Reader for PpuBusAdapterForCpuBus {
             2 => self.0.borrow().read_reg_status(),
             4 => self.0.borrow().read_reg_oam_data(),
             7 => self.0.borrow().read_reg_data(),
-            _ => panic!("PPU read from unsupported address: {:#04X}", addr),
+            _ => self.0.borrow().read_open_bus(),
         }
     }
 }
@@ -55,7 +58,7 @@ impl Writer for PpuBusAdapterForCpuBus {
             5 => self.0.borrow_mut().write_reg_scroll(data),
             6 => self.0.borrow_mut().write_reg_address(data),
             7 => self.0.borrow_mut().write_reg_data(data),
-            _ => panic!("PPU write to unsupported address: {:#04X}", addr),
+            _ => self.0.borrow_mut().write_open_bus(data),
         }
     }
 }
@@ -84,21 +87,24 @@ impl Writer for PatternTablesAdapterForPpuBus {
 }
 
 impl BusAdapter for PatternTablesAdapterForPpuBus {
+    fn observe_ppu_address(&self, addr: u16, cycle: u64) {
+        self.0.borrow_mut().observe_ppu_address(addr, cycle);
+    }
     fn address_accept(&self, addr: u16) -> bool {
         addr < 0x2000
     }
 }
 
 /// 名称表适配器，读取挂载在PPU总线上的VRAM中的名称表数据
-/// 寻址范围是 [0x2000, 0x3EFF], 其中[0x3000, 0x3FFF]是镜像了[0x2000, 0x2FFF]的区域
-/// VRAM 中的名称表区域总计有0x800=2KB字节
+/// 寻址范围是 [0x2000, 0x3EFF], 其中[0x3000, 0x3EFF]镜像[0x2000, 0x2EFF]
+/// 标准卡带使用2KB名称表RAM，四屏卡带使用4KB
 /// 每个名称表占用0x400字节，总共有4个名称表
 /// 游戏画面256x240分辨率被分割成了32x30个图案块
 /// 每个图案块使用一个8x8点阵图案
 /// 名称表用于确定画面中的每个图案块是什么，使用哪个8x8点阵
 pub struct NameTablesAdapterForPpuBus {
     pub vram: Rc<RefCell<dyn Ram>>,
-    pub mirroring: Mirroring,
+    pub cartridge: Rc<RefCell<dyn Cartridge>>,
 }
 
 impl NameTablesAdapterForPpuBus {
@@ -107,23 +113,22 @@ impl NameTablesAdapterForPpuBus {
         let base_addr = base_addr % 0x1000; // 将镜像地址进行映射到真正的数据区域
         let nametable_index = base_addr / 0x400; // 计算名称表索引 0,1,2,3
         let nametable_offset = base_addr % 0x400; // 计算名称表内的偏移地址
-        match self.mirroring {
+        match self.cartridge.borrow().mirroring() {
             Mirroring::Horizontal => {
-                // NT0 = NT2
-                // NT1 = NT3
-                let mapping_index = if nametable_index % 2 == 0 { 0 } else { 1 };
+                // NT0 = NT1, NT2 = NT3
+                let mapping_index = nametable_index / 2;
                 mapping_index * 0x400 + nametable_offset
             }
             Mirroring::Vertical => {
-                // NT0 = NT1
-                // NT2 = NT3
-                let mapping_index = if nametable_index < 2 { 0 } else { 1 };
+                // NT0 = NT2, NT1 = NT3
+                let mapping_index = nametable_index % 2;
                 mapping_index * 0x400 + nametable_offset
             }
             Mirroring::SingleScreen => {
                 // 所有名称表都映射到 NT0
                 nametable_offset
             }
+            Mirroring::SingleScreenHigh => 0x400 + nametable_offset,
             Mirroring::FourScreen => {
                 // 四屏模式下，所有名称表都独立
                 base_addr
@@ -162,15 +167,26 @@ pub struct PalettesTablesAdapterForPpuBus {
     pub vram: Rc<RefCell<dyn Ram>>,
 }
 
+fn palette_address(addr: u16) -> u16 {
+    let index = addr & 0x1f;
+    if index & 0x13 == 0x10 {
+        index - 0x10
+    } else {
+        index
+    }
+}
+
 impl Reader for PalettesTablesAdapterForPpuBus {
     fn read(&self, addr: u16) -> u8 {
-        self.vram.borrow().read((addr - 0x3F00) % 0x20)
+        self.vram.borrow().read(palette_address(addr))
     }
 }
 
 impl Writer for PalettesTablesAdapterForPpuBus {
     fn write(&mut self, addr: u16, data: u8) {
-        self.vram.borrow_mut().write((addr - 0x3F00) % 0x20, data);
+        self.vram
+            .borrow_mut()
+            .write(palette_address(addr), data & 0x3f);
     }
 }
 

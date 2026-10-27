@@ -62,11 +62,20 @@ impl From<CpuStatusFlags> for u8 {
 }
 
 pub trait Cpu {
+    /// A JAM opcode locks the CPU until reset; PPU/APU clocks may continue.
+    fn halt_reason(&self) -> Option<(u16, u8)> {
+        None
+    }
     fn set_reg_pc(&mut self, pc: u16);
     fn reset(&mut self);
     fn attach_bus(&mut self, bus: Rc<RefCell<dyn BusAdapter>>);
     fn dump_state(&self) -> CpuState;
     fn increase_cycles(&mut self, cycles: u32);
     fn trigger_interrupt(&mut self, interrupt: Interrupt);
+    fn set_irq_line(&mut self, asserted: bool) {
+        if asserted {
+            self.trigger_interrupt(Interrupt::Irq);
+        }
+    }
     fn clock(&mut self);
 }
