@@ -5,3 +5,9 @@ edition = "2024"
 
 [dependencies]
 nes-base = { path = "../nes-base" }
+nes-apu = { path = "../nes-apu" }
+nes-ppu = { path = "../nes-ppu" }
+nes-cpu = { path = "../nes-cpu" }
+nes-bus = { path = "../nes-bus" }
+nes-cartridge = { path = "../nes-cartridge" }
+nes-ram = { path = "../nes-ram" }

@@ -3,18 +3,21 @@ resolver = "2"
 
 members = [
     "nes-base",
+    "nes-apu",
     "nes-cpu",
     "nes-ram",
     "nes-bus",
     "nes-board",
     "nes-cartridge",
     "nes-test",
-    "nes-ppu", "nes-emulator",
+    "nes-ppu", "nes-emulator", "nes-web",
 ]
 
 [profile.release]
-opt-level = "s"
+opt-level = 3
+lto = "thin"
+codegen-units = 1
 
 [profile.dev]
 debug = true
-opt-level = "z"
+opt-level = 1

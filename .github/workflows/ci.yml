@@ -1,0 +1,45 @@
+name: NES regression checks
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: sudo apt-get update && sudo apt-get install -y libsdl2-dev
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+      - run: cargo test -p nes-emulator --locked audio::tests -- --ignored
+        env:
+          SDL_AUDIODRIVER: dummy
+      - run: cargo build --release -p nes-emulator --locked
+      - run: python3 scripts/check_test_roms.py /tmp/nes-test-roms --fetch --report /tmp/test-rom-results.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-rom-results
+          path: /tmp/test-rom-results.json
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - run: cargo install wasm-pack --version 0.13.1 --locked
+      - run: wasm-pack build nes-web --target web --release --locked
+      - run: node --test nes-web/tests/*.test.js
+      - uses: actions/upload-artifact@v7
+        with:
+          name: browser-emulator
+          path: |
+            nes-web/*.html
+            nes-web/*.css
+            nes-web/*.js
+            nes-web/pkg/*.js
+            nes-web/pkg/*.wasm

@@ -34,8 +34,6 @@ impl Writer for RamImpl {
 
 impl Ram for RamImpl {
     fn reset(&mut self) {
-        for byte in &mut self.data {
-            *byte = 0;
-        }
+        self.data.fill(0);
     }
 }

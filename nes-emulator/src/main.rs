@@ -1,42 +1,41 @@
-use embedded_graphics::{
-    mono_font::{MonoTextStyle, ascii::FONT_6X9},
-    pixelcolor::BinaryColor,
-    prelude::*,
-    primitives::{Circle, Line, PrimitiveStyle, Rectangle},
-    text::Text,
-};
-use embedded_graphics_simulator::{
-    BinaryColorTheme, OutputSettingsBuilder, SimulatorDisplay, Window,
-};
+use nes_board::Console;
+use nes_cartridge::NESFile;
+mod audio;
+mod cli;
+mod desktop;
+mod headless;
+mod output;
+mod replay;
+mod save;
 
-fn main() -> Result<(), core::convert::Infallible> {
-    let mut display = SimulatorDisplay::<BinaryColor>::new(Size::new(128, 64));
-
-    let line_style = PrimitiveStyle::with_stroke(BinaryColor::On, 1);
-    let text_style = MonoTextStyle::new(&FONT_6X9, BinaryColor::On);
-
-    Circle::new(Point::new(72, 8), 48)
-        .into_styled(line_style)
-        .draw(&mut display)?;
-
-    Line::new(Point::new(48, 16), Point::new(8, 16))
-        .into_styled(line_style)
-        .draw(&mut display)?;
-
-    Line::new(Point::new(48, 16), Point::new(64, 32))
-        .into_styled(line_style)
-        .draw(&mut display)?;
-
-    Rectangle::new(Point::new(79, 15), Size::new(34, 34))
-        .into_styled(line_style)
-        .draw(&mut display)?;
-
-    Text::new("Hello World!", Point::new(5, 5), text_style).draw(&mut display)?;
-
-    let output_settings = OutputSettingsBuilder::new()
-        .theme(BinaryColorTheme::OledBlue)
-        .build();
-    Window::new("Hello World", &output_settings).show_static(&display);
-
-    Ok(())
+fn run() -> Result<(), String> {
+    let Some(options) = cli::Options::parse(std::env::args().skip(1))? else {
+        println!("{}", cli::HELP);
+        return Ok(());
+    };
+    let mut console = Console::new(NESFile::try_from_file(&options.rom)?)?;
+    if !options.headless {
+        save::load(&mut console, &options.rom)?;
+    }
+    let mut replay = replay::Replay::load(options.input.as_deref())?;
+    let mut output = output::Output::new(&options)?;
+    let result = if options.headless {
+        headless::run(&mut console, &options, &mut replay, &mut output)
+    } else {
+        desktop::run(&mut console, &options, &mut replay, &mut output)
+    };
+    output.finish(&options, &console)?;
+    if !options.headless {
+        save::store(&console, &options.rom)?;
+    }
+    result
+}
+fn main() -> std::process::ExitCode {
+    match run() {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("nes-emulator: {error}");
+            std::process::ExitCode::FAILURE
+        }
+    }
 }

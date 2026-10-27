@@ -1,29 +1,48 @@
-use std::{cell::RefCell, rc::Rc};
-
-use nes_base::Ram;
-
-use crate::mapper::{mapper0::Mapper0, mapper2::Mapper2};
-
+use nes_base::Mirroring;
 mod mapper0;
+mod mapper1;
 mod mapper2;
+mod mapper3;
+mod mapper4;
+mod mapper66;
+mod mapper7;
 
+/// Mappers translate addresses and own registers; cartridge memory is stored once by CartridgeImpl.
 pub trait Mapper {
-    fn cpu_read(&self, addr: u16) -> u8;
-    fn cpu_write(&mut self, addr: u16, value: u8);
-    fn ppu_read(&self, addr: u16) -> u8;
-    fn ppu_write(&mut self, addr: u16, value: u8);
+    fn prg_address(&self, addr: u16, size: usize) -> usize;
+    fn chr_address(&self, addr: u16) -> usize {
+        addr as usize
+    }
+    fn write_register(&mut self, _addr: u16, _value: u8, _cpu_cycle: u64) {}
+    fn mirroring(&self) -> Option<Mirroring> {
+        None
+    }
+    fn ram_enabled(&self) -> bool {
+        true
+    }
+    fn ram_writable(&self) -> bool {
+        self.ram_enabled()
+    }
+    fn observe_ppu_address(&mut self, _addr: u16, _ppu_cycle: u64) {}
+    fn irq_pending(&self) -> bool {
+        false
+    }
+    fn reset(&mut self) {}
 }
 
-pub fn get_mapper_by_id(
-    mapper_id: u8,
-    prg_banks: u8,
-    chr_rom: Rc<RefCell<Vec<u8>>>,
-    prg_rom: Rc<RefCell<Vec<u8>>>,
-    sram: Option<Rc<RefCell<dyn Ram>>>,
-) -> Box<dyn Mapper> {
-    match mapper_id {
-        0 => Box::new(Mapper0::new(prg_banks, chr_rom, prg_rom, sram)),
-        2 => Box::new(Mapper2::new(prg_banks, chr_rom, prg_rom, sram)),
-        _ => panic!("Unsupported mapper ID: {}", mapper_id),
-    }
+pub fn create(id: u8) -> Result<Box<dyn Mapper>, String> {
+    Ok(match id {
+        0 => Box::new(mapper0::Mapper0),
+        1 => Box::new(mapper1::Mapper1::default()),
+        2 => Box::new(mapper2::Mapper2::default()),
+        3 => Box::new(mapper3::Mapper3::default()),
+        4 => Box::new(mapper4::Mapper4::default()),
+        7 => Box::new(mapper7::Mapper7::default()),
+        66 => Box::new(mapper66::Mapper66::default()),
+        _ => {
+            return Err(format!(
+                "Unsupported mapper {id}; supported: 0, 1, 2, 3, 4, 7, 66"
+            ));
+        }
+    })
 }
