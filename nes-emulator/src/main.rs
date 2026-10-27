@@ -1,5 +1,6 @@
 use nes_board::Console;
 use nes_cartridge::NESFile;
+mod audio;
 mod cli;
 mod desktop;
 mod headless;

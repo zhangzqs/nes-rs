@@ -1,12 +1,13 @@
 # 兼容性验证记录
 
-验证日期：2026-10-27。环境：Linux x86_64、Rust stable、SDL2 2.30；使用 release 构建。商业 ROM 仅在本地验证，本次改动不新增或下载它们到仓库/CI。
+验证日期：2026-10-27 至 2026-10-28。环境：Linux x86_64、Rust stable、SDL2 2.30；使用 release 构建。网页另在 Chromium 和 Windows Chrome 中检查。商业 ROM 仅在本地验证，本次改动不新增或下载它们到仓库/CI。
 
 ## 工程与硬件检查
 
 - `cargo fmt --all -- --check`
 - `cargo clippy --workspace --all-targets --locked -- -D warnings`
-- `cargo test --workspace --locked`：33 项通过，2 项需要本地商业 ROM 的测试默认忽略。
+- `cargo test --workspace --locked`：33 项通过；2 项需要本地商业 ROM 的测试和 1 项需要指定 SDL dummy 音频驱动的测试默认忽略。
+- `SDL_AUDIODRIVER=dummy cargo test -p nes-emulator --locked audio::tests -- --ignored`：额外的真实 SDL 队列测试通过，覆盖启动预填充、清空、断流恢复、普通积压保留样本和设备停滞后的积压限制。
 - 额外执行美版 Contra 的两项忽略测试：均通过。
 - SDL dummy 视频/音频驱动下运行真实桌面入口，验证两次启动间的电池存档恢复、损坏存档报错、无窗口运行隔离、PNG 尺寸及 WAV 头/采样率/长度。
 - 公开硬件测试 **52/52 通过**：CPU 指令 16、指令/分支时序 2、APU 8、PPU vblank/NMI 10、精灵 0 命中 11、MMC3 5。
@@ -20,6 +21,24 @@ python3 scripts/check_test_roms.py /tmp/nes-test-roms --fetch \
 ```
 
 `mmc3_test_2/6-MMC3_alt` 是旧 NEC MMC3 行为测试，与本实现的 Sharp MMC3 零重载行为互斥，因此不属于这 52 项。它在当前实现下报告 Failed #2，不能同时把两个变体都标为兼容。
+
+## 浏览器运行与声音
+
+`nes-web` 将同一套 CPU/PPU/APU 和卡带实现编译为 WASM，在 Worker 中运行，通过 Canvas 显示画面，使用 Web Audio 的设备时钟排程音频。Windows 浏览器直接输出声音，不经过 WSLg 的 PulseAudio/RDP 转发。
+
+```sh
+wasm-pack build nes-web --target web --release --locked
+node --test nes-web/tests/*.test.js
+python3 scripts/serve_web.py --rom /path/to/Super_mario_brothers.nes
+```
+
+- 网页回归测试 **5/5 通过**：真实 WASM 的画面尺寸、音频数量及有限值、电池 RAM 载入/复位/重建、错误 ROM；音频调度覆盖变长帧连续排程、暂停清空和停顿恢复。五分钟连续排程测试使用模拟的 48 kHz 音频时钟，不是五分钟人工听音。
+- Chromium 自动操作验证载入、暂停/继续、重置、错误 ROM 提示及错误后重新载入；390 像素视口无横向溢出。
+- Windows Chrome 中运行初代马里奥并进入第一关，用户实际听音确认持续播放正常、没有再断音。该结论针对本次运行环境，不扩展为所有浏览器和设备的保证。
+- 混音器缓存仅省去 DAC 电平不变时的重复计算；相同马里奥输入运行 1,200 帧，优化前后 WAV 文件逐字节一致，SHA-256 均为 `f6ad675ae05ed372f653505023f64420dc15866b4af8d0683cd87cafd20ff66a`。
+- CI 分别检查桌面和 WASM 构建，网页静态产物不含 ROM。
+
+此前 WSLg 下断音也能通过独立 libpulse 播放预录音频复现：前 40 秒基本实时，随后播放 50 秒音频耗时约 74 秒，单次写入最长阻塞约 1.39 秒。这一测试绕过了模拟器与 SDL，支持输出链路存在独立问题的判断；未断言具体 WSLg 内部缺陷已定位或修复。桌面端同时修正了空队列启动和普通积压时丢弃整帧音频的问题。
 
 ## 初代 Super Mario Bros.：完整录像通关
 

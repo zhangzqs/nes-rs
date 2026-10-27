@@ -170,6 +170,10 @@ impl Cpu for CpuImpl {
         self.total_cycles = self.total_cycles.wrapping_add(1);
     }
 
+    fn remaining_cycles(&self) -> u32 {
+        self.context.remaining_cycles
+    }
+
     fn dump_state(&self) -> CpuState {
         CpuState {
             total_cycles: self.total_cycles,

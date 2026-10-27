@@ -70,6 +70,9 @@ pub trait Cpu {
     fn reset(&mut self);
     fn attach_bus(&mut self, bus: Rc<RefCell<dyn BusAdapter>>);
     fn dump_state(&self) -> CpuState;
+    fn remaining_cycles(&self) -> u32 {
+        self.dump_state().remaining_cycles
+    }
     fn increase_cycles(&mut self, cycles: u32);
     fn trigger_interrupt(&mut self, interrupt: Interrupt);
     fn set_irq_line(&mut self, asserted: bool) {

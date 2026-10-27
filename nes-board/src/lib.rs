@@ -84,7 +84,7 @@ impl BoardImpl {
 
     pub fn clock(&mut self) {
         // Transfer only at an instruction boundary, with no CPU/bus borrow held.
-        if self.cpu.borrow().dump_state().remaining_cycles == 0 {
+        if self.cpu.borrow().remaining_cycles() == 0 {
             let page = self.cpu_bus.borrow().take_dma_request();
             if let Some(page) = page {
                 for offset in 0..256 {
@@ -104,15 +104,17 @@ impl BoardImpl {
         self.cartridge.borrow_mut().clock_cpu();
         self.cpu.borrow_mut().clock();
 
+        let mut ppu = self.ppu.borrow_mut();
         for _ in 0..3 {
             // PPU 每个 CPU 时钟周期执行 3 次
-            self.ppu.borrow_mut().clock();
-            if self.ppu.borrow().check_nmi_interrupt() {
+            ppu.clock();
+            if ppu.check_nmi_interrupt() {
                 // 如果 PPU 检测到 NMI 中断，则触发 CPU 的 NMI 中断
                 self.cpu.borrow_mut().trigger_interrupt(Interrupt::Nmi);
-                self.ppu.borrow_mut().clear_nmi_interrupt();
+                ppu.clear_nmi_interrupt();
             }
         }
+        drop(ppu);
 
         self.apu.borrow_mut().clock();
         let irq = self.apu.borrow().check_irq_interrupt() || self.cartridge.borrow().irq_pending();

@@ -1,7 +1,6 @@
-use crate::{cli::Options, output::Output, replay::Replay};
+use crate::{audio::Playback, cli::Options, output::Output, replay::Replay};
 use nes_board::Console;
 use sdl2::{
-    audio::AudioSpecDesired,
     event::Event,
     keyboard::{Keycode, Scancode},
     pixels::PixelFormatEnum,
@@ -33,21 +32,8 @@ pub fn run(
     let audio = if options.mute {
         None
     } else {
-        let device = sdl.audio().and_then(|audio| {
-            audio.open_queue::<f32, _>(
-                None,
-                &AudioSpecDesired {
-                    freq: Some(nes_apu::SAMPLE_RATE as i32),
-                    channels: Some(1),
-                    samples: Some(1024),
-                },
-            )
-        });
-        match device {
-            Ok(device) => {
-                device.resume();
-                Some(device)
-            }
+        match Playback::new(&sdl) {
+            Ok(device) => Some(device),
             Err(error) => {
                 eprintln!("Audio unavailable: {error}; continuing muted");
                 None
@@ -130,10 +116,8 @@ pub fn run(
         console.run_frame()?;
         let samples = console.take_audio();
         output.audio(&samples)?;
-        if let Some(audio) = &audio
-            && audio.size() < nes_apu::SAMPLE_RATE / 10 * 4
-        {
-            audio.queue_audio(&samples)?;
+        if let Some(audio) = &audio {
+            audio.queue(&samples)?;
         }
         texture
             .update(None, console.ppu.borrow().framebuffer().rgb(), 256 * 3)
@@ -145,12 +129,19 @@ pub fn run(
         if options.frames.is_some_and(|limit| frame >= limit) {
             break;
         }
-        deadline += frame_duration;
-        if let Some(wait) = deadline.checked_duration_since(Instant::now()) {
-            std::thread::sleep(wait);
-        } else if Instant::now().duration_since(deadline) > frame_duration * 4 {
-            deadline = Instant::now();
+        deadline += audio
+            .as_ref()
+            .map_or(frame_duration, |audio| audio.frame_duration(frame_duration));
+        let now = Instant::now();
+        let frame_wait = deadline.saturating_duration_since(now);
+        let audio_wait = audio
+            .as_ref()
+            .map_or(Duration::ZERO, Playback::wait_duration);
+        if now.saturating_duration_since(deadline) > frame_duration * 4 {
+            deadline = now;
         }
+        // A stalled audio backend must not hold up window events for seconds.
+        std::thread::sleep(frame_wait.max(audio_wait.min(frame_duration)));
     }
     Ok(())
 }

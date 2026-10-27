@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#dcded8">
+  <title>NES.rs · 游戏台</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header class="masthead">
+      <a class="brand" href="./">NES<span>.rs</span></a>
+      <span class="edition">一张卡带，一整个下午。</span>
+      <span class="tag">浏览器游戏台</span>
+    </header>
+    <div class="station">
+      <section class="console" aria-label="游戏画面">
+        <div class="screen">
+          <canvas id="screen" width="256" height="240" tabindex="0" aria-label="NES 游戏画面，方向键移动，Z 和 X 操作"></canvas>
+          <div id="empty" class="empty">
+            <div class="cartridge" aria-hidden="true"><span>NES</span></div>
+            <h1>插入卡带，开始游戏。</h1>
+            <p>选择一个 .nes 文件，或直接拖到这里</p>
+          </div>
+        </div>
+        <div class="console-strip"><span id="light" class="light"></span><span>POWER</span><strong id="game-name">等待卡带</strong><span class="vents" aria-hidden="true"></span></div>
+      </section>
+      <aside class="controls">
+        <div class="section-label">CARTRIDGE / 游戏卡带</div>
+        <button id="load" class="primary">载入 ROM <span aria-hidden="true">↗</span></button>
+        <input id="rom-file" type="file" accept=".nes" hidden>
+        <button id="demo" hidden>载入本地马里奥</button>
+        <p class="local-note">文件只在你的浏览器里运行，不会上传。</p>
+        <div id="status" role="status">准备就绪，选择游戏即可开始。</div>
+        <div class="actions"><button id="pause" disabled>暂停</button><button id="reset" disabled>重置</button><button id="fullscreen">全屏</button></div>
+        <label class="volume-label" for="volume">音量 <output id="volume-value">65%</output></label>
+        <input id="volume" type="range" min="0" max="100" value="65">
+        <div class="guide">
+          <div class="section-label">CONTROLLER / 键盘手柄</div>
+          <dl>
+            <div><dt>方向</dt><dd><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></dd></div>
+            <div><dt>A / 跳跃</dt><dd><kbd>Z</kbd></dd></div>
+            <div><dt>B / 加速、射击</dt><dd><kbd>X</kbd></dd></div>
+            <div><dt>开始</dt><dd><kbd>Enter</kbd></dd></div>
+            <div><dt>选择</dt><dd><kbd>右 Shift</kbd></dd></div>
+            <div><dt>暂停 / 继续</dt><dd><kbd>P</kbd></dd></div>
+          </dl>
+          <details><summary>双人操作</summary><p>2P：W / A / S / D 移动，G / H 对应 A / B，T 开始，R 选择。</p></details>
+        </div>
+      </aside>
+    </div>
+    <footer><span>保持像素原样，重温熟悉的关卡。</span><span>NTSC · 双手柄 · 本地电池存档</span></footer>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

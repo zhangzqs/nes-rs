@@ -1,8 +1,35 @@
 # nes-rs
 
-模块化 Rust NES 模拟器。当前实现 NTSC CPU/PPU/APU、双手柄、桌面画面和音频，以及 Mapper 0、1、2、3、4、7、66。
+模块化 Rust NES 模拟器。提供 SDL2 桌面版和 WebAssembly 网页版，共用 NTSC CPU/PPU/APU、双手柄，以及 Mapper 0、1、2、3、4、7、66。
 
-## 启动
+## 网页版
+
+需要 Rust stable、wasm-pack 和 Python 3；网页构建不依赖 SDL2。
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-pack --version 0.13.1 --locked
+wasm-pack build nes-web --target web --release --locked
+python3 scripts/serve_web.py
+```
+
+用浏览器打开 `http://localhost:8000`，点击“载入 ROM”选择本地 `.nes` 文件，或拖入文件。点击载入会启用声音，Enter 进入游戏；键位与桌面版相同，支持暂停、重置、音量和全屏。游戏运算在 Worker 内运行，声音使用 Web Audio 的播放时钟排程；切到后台自动暂停，返回后点击继续。
+
+WSL 用户请使用 **Windows 里的浏览器** 打开上述地址，绕过 WSLg 的 PulseAudio/RDP 音频转发。也可显式提供一个本地游戏，服务器会打印带快捷载入按钮的地址：
+
+```sh
+python3 scripts/serve_web.py --rom /path/to/game.nes
+```
+
+ROM 不上传、不打包进网页产物。电池存档每约一秒保存到浏览器的本地存储，按 ROM 的 SHA-256 区分；清理站点数据会清除存档。网页版与桌面版存档分别保存。静态部署时只需 `nes-web` 的 HTML/CSS/JS 和构建后的 `pkg`，使用 HTTPS（本机开发可用 `http://localhost`），以启用浏览器的安全上下文 API；CI 的 `browser-emulator` 产物已包含这些文件。
+
+运行网页音频调度与真实 WASM 接口回归测试（先完成上述构建）：
+
+```sh
+node --test nes-web/tests/*.test.js
+```
+
+## 桌面版
 
 需要 Rust stable 和 SDL2 开发库。Ubuntu/Debian：
 
@@ -84,6 +111,7 @@ NES_CONTRA_ROM=/path/to/Contra-US.nes \
 - `nes-cartridge`：iNES 解析、共享卡带内存和每个 mapper 的独立寄存器实现。
 - `nes-bus`、`nes-ram`、`nes-board`：地址路由、内存、时钟调度和 `Console` 组装。
 - `nes-emulator`：SDL2 桌面入口、无窗口运行、回放、文件输出和存档。
+- `nes-web`：WASM 接口、Worker、Canvas 画面、Web Audio、键盘操作与浏览器存档。
 - `nes-test`：CPU 日志、整机与可选游戏回归测试。
 
 ## 兼容性边界

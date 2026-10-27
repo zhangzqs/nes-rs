@@ -6,6 +6,8 @@ pub(crate) struct Mixer {
     phase: u32,
     sum: f32,
     count: u32,
+    levels: [u8; 4],
+    mixed: f32,
     input: f32,
     high_pass: f32,
     low_pass: f32,
@@ -13,19 +15,26 @@ pub(crate) struct Mixer {
 }
 impl Mixer {
     pub fn clock(&mut self, pulse: u8, triangle: u8, noise: u8, dmc: u8) {
-        let pulse = pulse as f32;
-        let pulse_out = if pulse == 0.0 {
-            0.0
-        } else {
-            95.88 / (8128.0 / pulse + 100.0)
-        };
-        let tnd = triangle as f32 / 8227.0 + noise as f32 / 12241.0 + dmc as f32 / 22638.0;
-        let tnd_out = if tnd == 0.0 {
-            0.0
-        } else {
-            159.79 / (1.0 / tnd + 100.0)
-        };
-        self.sum += pulse_out + tnd_out;
+        let levels = [pulse, triangle, noise, dmc];
+        if levels != self.levels {
+            // DAC levels usually remain constant for many CPU cycles. Reuse the
+            // nonlinear mix until they change, while still averaging every cycle.
+            self.levels = levels;
+            let pulse = pulse as f32;
+            let pulse_out = if pulse == 0.0 {
+                0.0
+            } else {
+                95.88 / (8128.0 / pulse + 100.0)
+            };
+            let tnd = triangle as f32 / 8227.0 + noise as f32 / 12241.0 + dmc as f32 / 22638.0;
+            let tnd_out = if tnd == 0.0 {
+                0.0
+            } else {
+                159.79 / (1.0 / tnd + 100.0)
+            };
+            self.mixed = pulse_out + tnd_out;
+        }
+        self.sum += self.mixed;
         self.count += 1;
         self.phase += SAMPLE_RATE;
         if self.phase >= CPU_HZ {

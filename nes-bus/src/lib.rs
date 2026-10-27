@@ -34,8 +34,9 @@ impl Bus for BusImpl {
 impl Reader for BusImpl {
     fn read(&self, address: u16) -> u8 {
         for device in &self.devices {
-            if device.borrow().address_accept(address) {
-                let value = device.borrow().read(address);
+            let device = device.borrow();
+            if device.address_accept(address) {
+                let value = device.read(address);
                 self.open_bus.set(value);
                 return value;
             }
