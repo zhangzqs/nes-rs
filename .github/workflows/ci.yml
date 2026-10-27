@@ -6,7 +6,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -16,7 +16,7 @@ jobs:
       - run: cargo test --workspace --locked
       - run: cargo build --release -p nes-emulator --locked
       - run: python3 scripts/check_test_roms.py /tmp/nes-test-roms --fetch --report /tmp/test-rom-results.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-rom-results
