@@ -1,3 +1,4 @@
+use clap::Parser;
 use nes_board::Console;
 use nes_cartridge::NESFile;
 mod cli;
@@ -7,11 +8,7 @@ mod output;
 mod replay;
 mod save;
 
-fn run() -> Result<(), String> {
-    let Some(options) = cli::Options::parse(std::env::args().skip(1))? else {
-        println!("{}", cli::HELP);
-        return Ok(());
-    };
+fn run(options: cli::Options) -> Result<(), String> {
     let mut console = Console::new(NESFile::try_from_file(&options.rom)?)?;
     if !options.headless {
         save::load(&mut console, &options.rom)?;
@@ -30,7 +27,7 @@ fn run() -> Result<(), String> {
     result
 }
 fn main() -> std::process::ExitCode {
-    match run() {
+    match run(cli::Options::parse()) {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("nes-emulator: {error}");
