@@ -1,76 +1,47 @@
+use clap::Parser;
 use std::path::PathBuf;
 
-pub const HELP: &str = "Usage: nes-emulator ROM.nes [options]
-  --headless             Run without a window or audio device
-  --frames N             Stop after N frames (required in headless mode)
-  --input FILE           Replay lines: FRAME P1_HEX P2_HEX; masks persist until changed
-  --screenshot FILE.png  Save the final frame
-  --wav FILE.wav         Save mono 44.1 kHz audio
-  --ram-dump FILE        Save the final 2 KiB CPU RAM
-  --test-rom             Check the blargg $6000 result protocol (headless only)
-  --mute                 Disable audio playback
-  --help                 Show this help
+const CONTROLS: &str = "玩家 1：方向键移动，Z=A，X=B，Enter=开始，右 Shift=选择
+玩家 2：WASD 移动，G=A，H=B，T=开始，R=选择
+P=暂停，F2=复位，Escape=退出";
 
-Player 1: arrows, Z=A, X=B, Return=Start, Right Shift=Select
-Player 2: WASD, G=A, H=B, T=Start, R=Select
-P=pause, F2=reset, Escape=quit";
-
-#[derive(Default)]
+/// NES 模拟器，支持桌面游玩和无窗口回放。
+#[derive(Parser)]
+#[command(after_help = CONTROLS, args_override_self = true)]
 pub struct Options {
+    /// 要运行的 NES ROM 文件
+    #[arg(value_name = "ROM.nes")]
     pub rom: PathBuf,
+
+    /// 无窗口运行，不打开音频设备（必须指定 --frames）
+    #[arg(long, requires = "frames")]
     pub headless: bool,
+
+    /// 运行指定帧数后退出，帧数必须大于零
+    #[arg(long, value_name = "N", value_parser = clap::value_parser!(u64).range(1..))]
     pub frames: Option<u64>,
+
+    /// 回放输入文件；每行格式为 FRAME P1_HEX P2_HEX，按键状态保持至下次修改
+    #[arg(long, value_name = "FILE")]
     pub input: Option<PathBuf>,
+
+    /// 将最后一帧保存为 PNG 图片
+    #[arg(long, value_name = "FILE.png")]
     pub screenshot: Option<PathBuf>,
+
+    /// 将音频保存为单声道 44.1 kHz WAV 文件
+    #[arg(long, value_name = "FILE.wav")]
     pub wav: Option<PathBuf>,
+
+    /// 保存运行结束时的 2 KiB CPU RAM
+    #[arg(long, value_name = "FILE")]
     pub ram_dump: Option<PathBuf>,
+
+    /// 检查 blargg 测试 ROM 的 $6000 结果协议（仅限无窗口模式）
+    #[arg(long, requires = "headless")]
     pub test_rom: bool,
+
+    /// 关闭音频播放
+    #[arg(long)]
     pub mute: bool,
-}
-impl Options {
-    pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Self>, String> {
-        let mut args = args.into_iter();
-        let mut options = Self::default();
-        while let Some(arg) = args.next() {
-            match arg.as_str() {
-                "--help" | "-h" => return Ok(None),
-                "--headless" => options.headless = true,
-                "--mute" => options.mute = true,
-                "--test-rom" => options.test_rom = true,
-                "--frames" => {
-                    let value = args.next().ok_or("--frames requires a positive integer")?;
-                    let frames = value.parse::<u64>().map_err(|_| "Invalid frame count")?;
-                    if frames == 0 {
-                        return Err("Frame count must be positive".into());
-                    }
-                    options.frames = Some(frames);
-                }
-                "--input" | "--screenshot" | "--wav" | "--ram-dump" => {
-                    let value = PathBuf::from(
-                        args.next()
-                            .ok_or_else(|| format!("{arg} requires a path"))?,
-                    );
-                    match arg.as_str() {
-                        "--input" => options.input = Some(value),
-                        "--screenshot" => options.screenshot = Some(value),
-                        "--wav" => options.wav = Some(value),
-                        _ => options.ram_dump = Some(value),
-                    }
-                }
-                _ if arg.starts_with('-') => return Err(format!("Unknown option: {arg}")),
-                _ if options.rom.as_os_str().is_empty() => options.rom = arg.into(),
-                _ => return Err(format!("Unexpected argument: {arg}")),
-            }
-        }
-        if options.rom.as_os_str().is_empty() {
-            return Err("A ROM path is required".into());
-        }
-        if options.headless && options.frames.is_none() {
-            return Err("--headless requires --frames".into());
-        }
-        if options.test_rom && !options.headless {
-            return Err("--test-rom requires --headless".into());
-        }
-        Ok(Some(options))
-    }
 }
