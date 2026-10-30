@@ -75,6 +75,15 @@ pub fn run(console: &mut Console, mute: bool) -> Result<(), String> {
             deadline = Instant::now();
             continue;
         }
+        if let Some(audio) = &audio {
+            let wait = audio.wait_duration();
+            if !wait.is_zero() {
+                // 积压时暂停生成新帧，每帧检查一次窗口事件，避免设备停滞阻塞退出。
+                std::thread::sleep(wait.min(frame_duration));
+                deadline = Instant::now();
+                continue;
+            }
+        }
         let keyboard = events.keyboard_state();
         let bindings = [
             [
@@ -115,19 +124,13 @@ pub fn run(console: &mut Console, mute: bool) -> Result<(), String> {
         canvas.clear();
         canvas.copy(&texture, None, None)?;
         canvas.present();
-        deadline += audio
-            .as_ref()
-            .map_or(frame_duration, |audio| audio.frame_duration(frame_duration));
+        deadline += frame_duration;
         let now = Instant::now();
         let frame_wait = deadline.saturating_duration_since(now);
-        let audio_wait = audio
-            .as_ref()
-            .map_or(Duration::ZERO, Playback::wait_duration);
         if now.saturating_duration_since(deadline) > frame_duration * 4 {
             deadline = now;
         }
-        // 音频设备停滞时，仍应及时处理窗口事件。
-        std::thread::sleep(frame_wait.max(audio_wait.min(frame_duration)));
+        std::thread::sleep(frame_wait);
     }
     Ok(())
 }
