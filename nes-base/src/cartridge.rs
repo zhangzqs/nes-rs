@@ -8,6 +8,18 @@ pub trait Cartridge {
     fn ppu_read(&self, addr: u16) -> u8;
     fn ppu_write(&mut self, addr: u16, value: u8);
     fn mirroring(&self) -> Mirroring;
+    fn clock_cpu(&mut self) {}
+    fn observe_ppu_address(&mut self, _addr: u16, _cycle: u64) {}
+    fn irq_pending(&self) -> bool {
+        false
+    }
+    fn reset(&mut self) {}
+    fn save_ram(&self) -> Option<Vec<u8>> {
+        None
+    }
+    fn load_save_ram(&mut self, _bytes: &[u8]) -> Result<(), String> {
+        Err("Cartridge has no battery RAM".into())
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -15,6 +27,7 @@ pub enum Mirroring {
     Horizontal,
     Vertical,
     SingleScreen,
+    SingleScreenHigh,
     FourScreen,
 }
 

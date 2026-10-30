@@ -5,4 +5,3 @@ edition = "2024"
 
 [dependencies]
 nes-base = { path = "../nes-base" }
-nes-ram = { path = "../nes-ram" }

@@ -40,7 +40,7 @@ impl BoardImpl {
             ))),
             Rc::new(RefCell::new(NameTablesAdapterForPpuBus {
                 vram: self.ppu_name_tables_ram.clone(),
-                mirroring: self.cartridge.borrow().mirroring(),
+                cartridge: self.cartridge.clone(),
             })),
             Rc::new(RefCell::new(PalettesTablesAdapterForPpuBus {
                 vram: self.ppu_palettes_tables_ram.clone(),
