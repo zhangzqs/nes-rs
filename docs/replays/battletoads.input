@@ -1,8 +1,0 @@
-# Battletoads (USA): wait for title, start and play opening stage.
-5000 08 00
-5030 00 00
-5400 08 00
-5430 00 00
-6500 82 00
-6550 83 00
-6580 82 00
