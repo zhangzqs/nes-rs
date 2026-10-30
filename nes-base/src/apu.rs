@@ -37,6 +37,11 @@ pub trait Apu {
     fn read_reg_status(&self) -> u8;
 
     fn clock(&mut self);
+    fn reset(&mut self) {}
+    fn take_dmc_request(&mut self) -> Option<u16> {
+        None
+    }
+    fn supply_dmc_sample(&mut self, _sample: u8) {}
 
     // 检查是否有 IRQ 中断请求
     fn check_irq_interrupt(&self) -> bool;
@@ -50,9 +55,7 @@ impl Reader for ApuAdapterForCpuBus {
     fn read(&self, addr: u16) -> u8 {
         match addr {
             0x4015 => self.0.borrow().read_reg_status(),
-            x => {
-                panic!("APU read from unsupported address: {:#04X}", x);
-            }
+            _ => 0,
         }
     }
 }
@@ -71,12 +74,12 @@ impl Writer for ApuAdapterForCpuBus {
             0x4007 => self.0.borrow_mut().write_reg_pulse2_timer_high(data),
 
             0x4008 => self.0.borrow_mut().write_reg_triangle_control(data),
-            0x4009 => todo!("Unsupported APU write to 0x4009"),
+            0x4009 => {}
             0x400A => self.0.borrow_mut().write_reg_triangle_timer_low(data),
             0x400B => self.0.borrow_mut().write_reg_triangle_timer_high(data),
 
             0x400C => self.0.borrow_mut().write_reg_noise_control(data),
-            0x400D => todo!("Unsupported APU write to 0x400D"),
+            0x400D => {}
             0x400E => self.0.borrow_mut().write_reg_noise_period(data),
             0x400F => self.0.borrow_mut().write_reg_noise_length(data),
 
