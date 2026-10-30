@@ -1,4 +1,4 @@
-use crate::{audio::Playback, cli::Options, output::Output, replay::Replay};
+use crate::audio::Playback;
 use nes_board::Console;
 use sdl2::{
     event::Event,
@@ -7,12 +7,7 @@ use sdl2::{
 };
 use std::time::{Duration, Instant};
 
-pub fn run(
-    console: &mut Console,
-    options: &Options,
-    replay: &mut Replay,
-    output: &mut Output,
-) -> Result<(), String> {
+pub fn run(console: &mut Console, mute: bool) -> Result<(), String> {
     let sdl = sdl2::init()?;
     let video = sdl.video()?;
     let window = video
@@ -29,7 +24,7 @@ pub fn run(
     let mut texture = creator
         .create_texture_streaming(PixelFormatEnum::RGB24, 256, 240)
         .map_err(|e| e.to_string())?;
-    let audio = if options.mute {
+    let audio = if mute {
         None
     } else {
         match Playback::new(&sdl) {
@@ -43,7 +38,6 @@ pub fn run(
     let mut events = sdl.event_pump()?;
     let frame_duration = Duration::from_secs_f64(29780.5 / nes_apu::CPU_HZ as f64);
     let mut deadline = Instant::now();
-    let mut frame = 0;
     let mut paused = false;
     'running: loop {
         for event in events.poll_iter() {
@@ -81,41 +75,37 @@ pub fn run(
             deadline = Instant::now();
             continue;
         }
-        if options.input.is_none() {
-            let keyboard = events.keyboard_state();
-            let bindings = [
-                [
-                    Scancode::Z,
-                    Scancode::X,
-                    Scancode::RShift,
-                    Scancode::Return,
-                    Scancode::Up,
-                    Scancode::Down,
-                    Scancode::Left,
-                    Scancode::Right,
-                ],
-                [
-                    Scancode::G,
-                    Scancode::H,
-                    Scancode::R,
-                    Scancode::T,
-                    Scancode::W,
-                    Scancode::S,
-                    Scancode::A,
-                    Scancode::D,
-                ],
-            ];
-            for (player, keys) in bindings.iter().enumerate() {
-                let mask = keys.iter().enumerate().fold(0, |mask, (bit, &key)| {
-                    mask | (u8::from(keyboard.is_scancode_pressed(key)) << bit)
-                });
-                console.set_buttons(player, mask);
-            }
+        let keyboard = events.keyboard_state();
+        let bindings = [
+            [
+                Scancode::Z,
+                Scancode::X,
+                Scancode::RShift,
+                Scancode::Return,
+                Scancode::Up,
+                Scancode::Down,
+                Scancode::Left,
+                Scancode::Right,
+            ],
+            [
+                Scancode::G,
+                Scancode::H,
+                Scancode::R,
+                Scancode::T,
+                Scancode::W,
+                Scancode::S,
+                Scancode::A,
+                Scancode::D,
+            ],
+        ];
+        for (player, keys) in bindings.iter().enumerate() {
+            let mask = keys.iter().enumerate().fold(0, |mask, (bit, &key)| {
+                mask | (u8::from(keyboard.is_scancode_pressed(key)) << bit)
+            });
+            console.set_buttons(player, mask);
         }
-        replay.apply(frame, console);
         console.run_frame()?;
         let samples = console.take_audio();
-        output.audio(&samples)?;
         if let Some(audio) = &audio {
             audio.queue(&samples)?;
         }
@@ -125,10 +115,6 @@ pub fn run(
         canvas.clear();
         canvas.copy(&texture, None, None)?;
         canvas.present();
-        frame += 1;
-        if options.frames.is_some_and(|limit| frame >= limit) {
-            break;
-        }
         deadline += audio
             .as_ref()
             .map_or(frame_duration, |audio| audio.frame_duration(frame_duration));
@@ -140,7 +126,7 @@ pub fn run(
         if now.saturating_duration_since(deadline) > frame_duration * 4 {
             deadline = now;
         }
-        // A stalled audio backend must not hold up window events for seconds.
+        // 音频设备停滞时，仍应及时处理窗口事件。
         std::thread::sleep(frame_wait.max(audio_wait.min(frame_duration)));
     }
     Ok(())

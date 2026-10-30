@@ -64,38 +64,20 @@ macOS 可先运行 `brew install sdl2`。未提供可用音频设备时，程序
 
 MMC1 当前覆盖标准 256 KiB 以内 PRG、8 KiB PRG-RAM 的板型。四屏镜像、Trainer 和 8 KiB 电池 RAM 均由卡带层统一管理。
 
-## 自动验证与回放
+## 自动验证
 
 ```sh
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
-cargo build --release -p nes-emulator --locked
-python3 scripts/check_test_roms.py /tmp/nes-test-roms --fetch
+python3 scripts/fetch_test_roms.py /tmp/nes-test-roms
+NES_TEST_ROM_DIR=/tmp/nes-test-roms \
+  cargo test --release -p nes-test --test hardware_roms --locked -- --ignored --nocapture
 ```
 
-最后一条命令下载固定版本的公开硬件测试 ROM，执行 52 项 CPU、APU、PPU、精灵命中和 MMC3 测试；任何失败或超时都会返回非零退出码。CI 使用相同检查，不下载商业游戏 ROM。
+下载脚本只获取固定版本的公开硬件测试 ROM；Rust 测试直接调用 `Console::run_frame()` 并读取内存中的结果，执行 52 项 CPU、APU、PPU、精灵命中和 MMC3 检查。测试有帧数上限，失败、缺失或超时均使测试失败。CI 使用相同检查，不下载商业游戏 ROM。
 
-无窗口模式可生成截图、音频和 RAM 快照：
-
-```sh
-cargo run --release -p nes-emulator -- /path/to/game.nes \
-  --headless --frames 1200 --input /path/to/play.input \
-  --screenshot /tmp/frame.png --wav /tmp/audio.wav --ram-dump /tmp/ram.bin
-```
-
-`--headless` 必须指定正数 `--frames`；它不读写电池存档，便于重现测试。`--test-rom` 检查 blargg 的 `$6000` 结果协议，失败和超时返回非零退出码。完整参数见 `--help`。
-
-输入文件使用从 0 开始的帧号，列为 `FRAME P1_HEX P2_HEX`，帧号必须严格递增；按键状态保持到下一个事件。位顺序从低到高是 A、B、Select、Start、Up、Down、Left、Right。支持 `#` 注释。例如：
-
-```text
-600 08 00  # 玩家 1 按 Start
-610 00 00  # 松开
-1000 82 00 # 右 + B
-1020 83 00 # 右 + B + A
-```
-
-文本 FM2 录像可用 `scripts/fm2_to_input.py movie.fm2 play.input --offset -1` 转换。只支持 NTSC、从初始状态开始、标准手柄的录像；不同模拟器的首帧和输入采样位置可能需要调整 offset，不保证所有 TAS 同步。
+桌面 CLI 只接受 ROM 路径、`--mute` 和 `--help`。游戏测试直接调用 `Console::set_buttons()`、`run_frame()` 和 `take_audio()`，无需启动窗口或通过 CLI 回放。
 
 使用本地美版《魂斗罗》执行单人移动/跳跃/射击和双人控制测试：
 
@@ -110,12 +92,12 @@ NES_CONTRA_ROM=/path/to/Contra-US.nes \
 - `nes-cpu`、`nes-ppu`、`nes-apu`：处理器、逐点图像生成及五声道音频；APU 各声道和混音独立拆分。
 - `nes-cartridge`：iNES 解析、共享卡带内存和每个 mapper 的独立寄存器实现。
 - `nes-bus`、`nes-ram`、`nes-board`：地址路由、内存、时钟调度和 `Console` 组装。
-- `nes-emulator`：SDL2 桌面入口、无窗口运行、回放、文件输出和存档。
+- `nes-emulator`：SDL2 桌面入口、键盘操作、音频播放和存档。
 - `nes-web`：WASM 接口、Worker、Canvas 画面、Web Audio、键盘操作与浏览器存档。
-- `nes-test`：CPU 日志、整机与可选游戏回归测试。
+- `nes-test`：CPU 日志、整机、公开硬件 ROM 与可选游戏回归测试。
 
 ## 兼容性边界
 
-已验证范围、ROM 指纹与复现步骤见 [验证记录](docs/validation.md)。初代《超级马里奥兄弟》已通过 18,500 帧通关录像；美版《魂斗罗》已验证第一关单人/双人操作。测试通过不代表所有游戏或所有硬件边界都已完美模拟。
+已验证范围、ROM 指纹与历史记录见 [验证记录](docs/validation.md)。初代《超级马里奥兄弟》曾完成 18,500 帧通关录像验证；美版《魂斗罗》已验证第一关单人/双人操作。测试通过不代表所有游戏或所有硬件边界都已完美模拟。
 
 当前不支持 PAL、NES 2.0、VS/PlayChoice、日版《魂斗罗》的 VRC2/VRC4、MMC1 大容量扩展板和旧版 NEC MMC3 的 IRQ 变体。CPU 尚未逐总线周期模拟所有 dummy 访问，DMA/DMC 仲裁和精灵溢出硬件缺陷仍有精度限制；RGB 调色板和音频滤波采用近似模型。

@@ -18,12 +18,17 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
       - run: cargo build --release -p nes-emulator --locked
-      - run: python3 scripts/check_test_roms.py /tmp/nes-test-roms --fetch --report /tmp/test-rom-results.json
+      - run: python3 scripts/fetch_test_roms.py /tmp/nes-test-roms
+      - run: cargo test --release -p nes-test --test hardware_roms --locked -- --ignored --nocapture | tee /tmp/test-rom-results.txt
+        shell: bash
+        timeout-minutes: 10
+        env:
+          NES_TEST_ROM_DIR: /tmp/nes-test-roms
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-rom-results
-          path: /tmp/test-rom-results.json
+          path: /tmp/test-rom-results.txt
   web:
     runs-on: ubuntu-latest
     steps:
