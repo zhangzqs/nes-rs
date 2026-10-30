@@ -3,3 +3,5 @@
 .serena/
 /roms/
 /artifacts/
+/nes-web/pkg/
+/.playwright-cli/
