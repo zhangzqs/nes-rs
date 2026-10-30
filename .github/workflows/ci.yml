@@ -1,5 +1,6 @@
 name: NES regression checks
 on:
+  push:
   pull_request:
 jobs:
   test:
@@ -17,6 +18,12 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
       - run: cargo build --release -p nes-emulator --locked
+      - run: python3 scripts/check_test_roms.py /tmp/nes-test-roms --fetch --report /tmp/test-rom-results.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-rom-results
+          path: /tmp/test-rom-results.json
   web:
     runs-on: ubuntu-latest
     steps:
