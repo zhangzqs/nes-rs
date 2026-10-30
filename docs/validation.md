@@ -9,7 +9,7 @@
 - `cargo fmt --all -- --check`
 - `cargo clippy --workspace --all-targets --locked -- -D warnings`
 - `cargo test --workspace --locked`：35 项通过；2 项需要本地商业 ROM、1 项需要公开硬件 ROM 目录和 1 项需要指定 SDL dummy 音频驱动的测试默认忽略。
-- `SDL_AUDIODRIVER=dummy cargo test -p nes-emulator --locked audio::tests -- --ignored`：额外的真实 SDL 队列测试通过，覆盖启动预填充、清空、断流恢复、普通积压保留样本和设备停滞后的积压限制。
+- `SDL_AUDIODRIVER=dummy cargo test -p nes-emulator --locked audio::tests -- --ignored`：额外的真实 SDL 队列测试通过，覆盖启动/恢复预填充、暂停清空、积压等待和样本保留。
 - 初次验证时额外执行美版 Contra 的两项忽略测试：均通过。
 - 存档测试直接构建 `Console`，调用读档、运行一帧和存档函数，验证电池 RAM 跨实例恢复、损坏存档报错及原文件保留。CLI 测试只调用参数解析函数，不启动子进程或 SDL。
 - 公开硬件测试 **52/52 通过**：CPU 指令 16、指令/分支时序 2、APU 8、PPU vblank/NMI 10、精灵 0 命中 11、MMC3 5。
