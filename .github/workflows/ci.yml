@@ -13,4 +13,7 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
+      - run: cargo test -p nes-emulator --locked audio::tests -- --ignored
+        env:
+          SDL_AUDIODRIVER: dummy
       - run: cargo build --release -p nes-emulator --locked
