@@ -1,6 +1,6 @@
+use crate::audio::Playback;
 use nes_board::Console;
 use sdl2::{
-    audio::AudioSpecDesired,
     event::Event,
     keyboard::{Keycode, Scancode},
     pixels::PixelFormatEnum,
@@ -27,21 +27,8 @@ pub fn run(console: &mut Console, mute: bool) -> Result<(), String> {
     let audio = if mute {
         None
     } else {
-        let device = sdl.audio().and_then(|audio| {
-            audio.open_queue::<f32, _>(
-                None,
-                &AudioSpecDesired {
-                    freq: Some(nes_apu::SAMPLE_RATE as i32),
-                    channels: Some(1),
-                    samples: Some(1024),
-                },
-            )
-        });
-        match device {
-            Ok(device) => {
-                device.resume();
-                Some(device)
-            }
+        match Playback::new(&sdl) {
+            Ok(device) => Some(device),
             Err(error) => {
                 eprintln!("Audio unavailable: {error}; continuing muted");
                 None
@@ -88,6 +75,15 @@ pub fn run(console: &mut Console, mute: bool) -> Result<(), String> {
             deadline = Instant::now();
             continue;
         }
+        if let Some(audio) = &audio {
+            let wait = audio.wait_duration();
+            if !wait.is_zero() {
+                // 积压时暂停生成新帧，每帧检查一次窗口事件，避免设备停滞阻塞退出。
+                std::thread::sleep(wait.min(frame_duration));
+                deadline = Instant::now();
+                continue;
+            }
+        }
         let keyboard = events.keyboard_state();
         let bindings = [
             [
@@ -119,10 +115,8 @@ pub fn run(console: &mut Console, mute: bool) -> Result<(), String> {
         }
         console.run_frame()?;
         let samples = console.take_audio();
-        if let Some(audio) = &audio
-            && audio.size() < nes_apu::SAMPLE_RATE / 10 * 4
-        {
-            audio.queue_audio(&samples)?;
+        if let Some(audio) = &audio {
+            audio.queue(&samples)?;
         }
         texture
             .update(None, console.ppu.borrow().framebuffer().rgb(), 256 * 3)
@@ -131,11 +125,12 @@ pub fn run(console: &mut Console, mute: bool) -> Result<(), String> {
         canvas.copy(&texture, None, None)?;
         canvas.present();
         deadline += frame_duration;
-        if let Some(wait) = deadline.checked_duration_since(Instant::now()) {
-            std::thread::sleep(wait);
-        } else if Instant::now().duration_since(deadline) > frame_duration * 4 {
-            deadline = Instant::now();
+        let now = Instant::now();
+        let frame_wait = deadline.saturating_duration_since(now);
+        if now.saturating_duration_since(deadline) > frame_duration * 4 {
+            deadline = now;
         }
+        std::thread::sleep(frame_wait);
     }
     Ok(())
 }
