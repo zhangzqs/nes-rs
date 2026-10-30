@@ -46,7 +46,7 @@ impl Context {
             reg_y: 0,
             reg_sp: 0xFD, // 栈指针初始值
             reg_pc: 0xFFFC,
-            reg_status: 0x24, // Unused 和 Break flags set
+            reg_status: 0x24, // 保留位和中断屏蔽位置 1
             remaining_cycles: 7,
             data_address: 0,
             op: None,
@@ -654,7 +654,7 @@ fn instruction_sre(ctx: &mut Context) {
     instruction_eor(ctx);
 }
 
-// Unstable stores mask with the unindexed high byte and can corrupt the address on a page crossing.
+// 不稳定存储指令使用未加索引的地址高字节生成掩码，跨页时可能改变实际写入地址。
 fn store_high(ctx: &mut Context, value: u8, index: u8) {
     let base = ctx.data_address.wrapping_sub(index as u16);
     let value = value & ((base >> 8) as u8).wrapping_add(1);
@@ -692,7 +692,7 @@ fn instruction_xaa(ctx: &mut Context) {
     ctx.set_status_flag(StatusFlag::Negative, ctx.reg_a & 0x80 != 0);
 }
 
-// NOP/IGN/SKB
+// 空操作指令（NOP/IGN/SKB）
 fn instruction_nop(_: &mut Context) {}
 fn instruction_skb(_: &mut Context) {}
 fn instruction_ign(_: &mut Context) {}
@@ -807,14 +807,14 @@ fn interrupt_nmi(ctx: &mut Context) {
 
 fn interrupt_reset(ctx: &mut Context) {
     ctx.reg_sp = 0xFD;
-    ctx.reg_status = 0x24; // Unused and Break flags set
+    ctx.reg_status = 0x24; // 保留位和中断屏蔽位置 1
     ctx.reg_pc = ctx.read_bus_16bit(0xFFFC);
 
     ctx.remaining_cycles = 7;
 }
 
 fn interrupt_irq(ctx: &mut Context) {
-    // I was sampled by the CPU before the final instruction cycle.
+    // CPU 已在指令的最后一个周期之前采样 I 标志。
     ctx.push_stack_16bit(ctx.reg_pc);
     ctx.push_stack((ctx.reg_status | 0x20) & !0x10);
     ctx.set_status_flag(StatusFlag::InterruptDisable, true);

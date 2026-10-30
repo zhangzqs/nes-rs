@@ -115,12 +115,12 @@ impl NameTablesAdapterForPpuBus {
         let nametable_offset = base_addr % 0x400; // 计算名称表内的偏移地址
         match self.cartridge.borrow().mirroring() {
             Mirroring::Horizontal => {
-                // NT0 = NT1, NT2 = NT3
+                // 水平镜像：NT0 = NT1，NT2 = NT3
                 let mapping_index = nametable_index / 2;
                 mapping_index * 0x400 + nametable_offset
             }
             Mirroring::Vertical => {
-                // NT0 = NT2, NT1 = NT3
+                // 垂直镜像：NT0 = NT2，NT1 = NT3
                 let mapping_index = nametable_index % 2;
                 mapping_index * 0x400 + nametable_offset
             }
@@ -198,10 +198,10 @@ impl BusAdapter for PalettesTablesAdapterForPpuBus {
 
 /// PPU 总线镜像适配器，用于在总线上构造出按0x4000镜像的PPU总线
 /// 这使得PPU总线的地址范围可以存在如下映射：
-/// [0x0000, 0x3FFF] => [0x0000,0x3FFF]
-/// [0x4000, 0x7FFF] => [0x0000,0x3FFF]
-/// [0x8000, 0xBFFF] => [0x0000,0x3FFF]
-/// [0xC000, 0xFFFF] => [0x0000,0x3FFF]
+/// - `0x0000..=0x3FFF` 映射到 `0x0000..=0x3FFF`。
+/// - `0x4000..=0x7FFF` 映射到 `0x0000..=0x3FFF`。
+/// - `0x8000..=0xBFFF` 映射到 `0x0000..=0x3FFF`。
+/// - `0xC000..=0xFFFF` 映射到 `0x0000..=0x3FFF`。
 pub struct MirrorBusAdapterForPpuBus(pub Rc<RefCell<dyn Bus>>);
 
 impl Reader for MirrorBusAdapterForPpuBus {

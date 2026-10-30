@@ -43,7 +43,7 @@ impl Mapper for Mapper1 {
         }
     }
     fn write_register(&mut self, addr: u16, value: u8, cpu_cycle: u64) {
-        // The second write of a 6502 read-modify-write instruction is ignored.
+        // 忽略 6502 读改写指令中的第二次写入。
         if self.last_write.is_some_and(|last| cpu_cycle == last + 1) {
             return;
         }

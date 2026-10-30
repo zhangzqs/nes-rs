@@ -22,6 +22,6 @@ impl Writer for RamAdapterForCpuBus {
 
 impl BusAdapter for RamAdapterForCpuBus {
     fn address_accept(&self, addr: u16) -> bool {
-        addr < 0x2000 // 2KB of RAM
+        addr < 0x2000 // 2 KiB 内存
     }
 }

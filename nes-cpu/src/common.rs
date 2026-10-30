@@ -1,4 +1,4 @@
-// Preserve the standard uppercase 6502 instruction mnemonics.
+// 保留 6502 指令助记符的标准大写形式。
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum InstructionEnum {

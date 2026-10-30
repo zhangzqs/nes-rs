@@ -1,9 +1,8 @@
-
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PpuStatusRegister {
-    /// VBlank 标志
+    /// 垂直消隐标志
     pub vblank: bool,
-    /// Sprite 0 被渲染标志
+    /// 精灵 0 命中标志
     pub sprite_0_hit: bool,
     /// 精灵溢出标志
     pub sprite_overflow: bool,
@@ -19,16 +18,16 @@ impl From<u8> for PpuStatusRegister {
     }
 }
 
-impl Into<u8> for PpuStatusRegister {
-    fn into(self) -> u8 {
+impl From<PpuStatusRegister> for u8 {
+    fn from(val: PpuStatusRegister) -> Self {
         let mut value = 0;
-        if self.vblank {
+        if val.vblank {
             value |= 0b10000000;
         }
-        if self.sprite_0_hit {
+        if val.sprite_0_hit {
             value |= 0b01000000;
         }
-        if self.sprite_overflow {
+        if val.sprite_overflow {
             value |= 0b00100000;
         }
         value

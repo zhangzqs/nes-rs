@@ -27,7 +27,7 @@ impl CartridgeImpl {
             && (chr == 0 || chr.is_power_of_two())
             && match header.mapper_id {
                 0 => prg <= 2 && chr <= 1,
-                1 => prg <= 16 && chr <= 16, // Standard MMC1 with 8 KiB PRG-RAM.
+                1 => prg <= 16 && chr <= 16, // 标准 MMC1 板型，配备 8 KiB PRG-RAM。
                 2 => prg >= 2 && chr == 0,
                 3 => prg <= 2 && (1..=4).contains(&chr),
                 4 => (2..=32).contains(&prg) && chr <= 32,

@@ -17,8 +17,8 @@ impl Mixer {
     pub fn clock(&mut self, pulse: u8, triangle: u8, noise: u8, dmc: u8) {
         let levels = [pulse, triangle, noise, dmc];
         if levels != self.levels {
-            // DAC levels usually remain constant for many CPU cycles. Reuse the
-            // nonlinear mix until they change, while still averaging every cycle.
+            // DAC 电平通常连续多个 CPU 周期保持不变；在电平变化前
+            // 复用非线性混音结果，但仍逐周期计算平均值。
             self.levels = levels;
             let pulse = pulse as f32;
             let pulse_out = if pulse == 0.0 {
@@ -40,11 +40,11 @@ impl Mixer {
         if self.phase >= CPU_HZ {
             self.phase -= CPU_HZ;
             let input = self.sum / self.count as f32;
-            // DC removal followed by a low-pass filter, evaluated at 44.1 kHz.
+            // 先去除直流分量，再执行低通滤波，处理频率为 44.1 kHz。
             self.high_pass = 0.987 * (self.high_pass + input - self.input);
             self.input = input;
             self.low_pass += 0.65 * (self.high_pass - self.low_pass);
-            // Keep headless users that do not drain audio from growing without bound.
+            // 限制无窗口模式下未被读取的音频样本，避免缓冲无限增长。
             if self.samples.len() < SAMPLE_RATE as usize {
                 self.samples.push(self.low_pass);
             }

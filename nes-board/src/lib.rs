@@ -1,21 +1,25 @@
+mod console;
+pub mod joypad;
+pub use console::Console;
+
 use std::{cell::RefCell, rc::Rc};
 
 use nes_base::{
     ApuAdapterForCpuBus, Bus, BusAdapter, Cartridge, CartridgeAdapterForCPUBus, Cpu, DmaForCpuBus,
-    Interrupt, Joypad, JoypadAdapterForCpuBus, MirrorBusAdapterForPpuBus,
-    NameTablesAdapterForPpuBus, PalettesTablesAdapterForPpuBus, PatternTablesAdapterForPpuBus, Ppu,
-    PpuBusAdapterForCpuBus, Ram, RamAdapterForCpuBus,
+    Interrupt, Joypad, JoypadAdapterForCpuBus, NameTablesAdapterForPpuBus,
+    PalettesTablesAdapterForPpuBus, PatternTablesAdapterForPpuBus, Ppu, PpuBusAdapterForCpuBus,
+    Ram, RamAdapterForCpuBus,
 };
 
 pub struct BoardImpl {
-    pub cpu_bus: Rc<RefCell<dyn Bus>>,                 // CPU bus
-    pub ppu_bus: Rc<RefCell<dyn Bus>>,                 // PPU bus
-    pub cpu: Rc<RefCell<dyn Cpu>>,                     // CPU
-    pub ppu: Rc<RefCell<dyn Ppu>>,                     // PPU
+    pub cpu_bus: Rc<RefCell<dyn Bus>>,                 // CPU 总线
+    pub ppu_bus: Rc<RefCell<dyn Bus>>,                 // PPU 总线
+    pub cpu: Rc<RefCell<dyn Cpu>>,                     // CPU 处理器
+    pub ppu: Rc<RefCell<dyn Ppu>>,                     // PPU 图像处理器
     pub ppu_name_tables_ram: Rc<RefCell<dyn Ram>>,     // PPU 名称表 RAM
     pub ppu_palettes_tables_ram: Rc<RefCell<dyn Ram>>, // PPU 调色板表 RAM
-    pub ram: Rc<RefCell<dyn Ram>>,                     // RAM
-    pub apu: Rc<RefCell<dyn nes_base::Apu>>,           // APU
+    pub ram: Rc<RefCell<dyn Ram>>,                     // 工作内存
+    pub apu: Rc<RefCell<dyn nes_base::Apu>>,           // APU 音频处理器
     pub cartridge: Rc<RefCell<dyn Cartridge>>,         // 游戏卡带
     pub joypad1: Option<Rc<RefCell<dyn Joypad>>>,      // 手柄1P
     pub joypad2: Option<Rc<RefCell<dyn Joypad>>>,      // 手柄2P
@@ -34,7 +38,7 @@ impl BoardImpl {
         self.ppu.borrow_mut().attach_bus(self.ppu_bus.clone()); // PPU 连接到 PPU 总线上
 
         // 连接各个设备到PPU总线上
-        let ppu_bus_devices: [Rc<RefCell<dyn BusAdapter>>; 4] = [
+        let ppu_bus_devices: [Rc<RefCell<dyn BusAdapter>>; 3] = [
             Rc::new(RefCell::new(PatternTablesAdapterForPpuBus(
                 self.cartridge.clone(),
             ))),
@@ -45,9 +49,6 @@ impl BoardImpl {
             Rc::new(RefCell::new(PalettesTablesAdapterForPpuBus {
                 vram: self.ppu_palettes_tables_ram.clone(),
             })),
-            Rc::new(RefCell::new(MirrorBusAdapterForPpuBus(
-                self.ppu_bus.clone(),
-            ))),
         ];
         for device in ppu_bus_devices {
             self.ppu_bus.borrow_mut().register_device(device);
@@ -63,12 +64,10 @@ impl BoardImpl {
             Rc::new(RefCell::new(JoypadAdapterForCpuBus {
                 joypad1: self.joypad1.clone(),
                 joypad2: self.joypad2.clone(),
+                apu: self.apu.clone(),
             })),
             Rc::new(RefCell::new(ApuAdapterForCpuBus(self.apu.clone()))),
-            Rc::new(RefCell::new(DmaForCpuBus {
-                cpu_bus: self.cpu_bus.clone(),
-                cpu: self.cpu.clone(),
-            })),
+            Rc::new(RefCell::new(DmaForCpuBus::default())),
         ];
         for device in cpu_bus_devices {
             self.cpu_bus.borrow_mut().register_device(device);
@@ -76,29 +75,49 @@ impl BoardImpl {
     }
 
     pub fn reset(&mut self) {
+        self.cartridge.borrow_mut().reset();
         self.cpu.borrow_mut().reset(); // 重置 CPU
         self.ppu.borrow_mut().reset(); // 重置 PPU
-        self.ram.borrow_mut().reset(); // 重置 RAM
+        self.apu.borrow_mut().reset();
+        self.cpu_bus.borrow().take_dma_request();
     }
 
     pub fn clock(&mut self) {
-        self.cpu.borrow_mut().clock();
-
-        for _ in 0..3 {
-            // PPU 每个 CPU 时钟周期执行 3 次
-            self.ppu.borrow_mut().clock();
-            if self.ppu.borrow().check_nmi_interrupt() {
-                // 如果 PPU 检测到 NMI 中断，则触发 CPU 的 NMI 中断
-                self.cpu.borrow_mut().trigger_interrupt(Interrupt::Nmi);
-                self.ppu.borrow_mut().clear_nmi_interrupt();
+        // 仅在指令边界执行传输，此时不持有 CPU 或总线的借用。
+        if self.cpu.borrow().remaining_cycles() == 0 {
+            let page = self.cpu_bus.borrow().take_dma_request();
+            if let Some(page) = page {
+                for offset in 0..256 {
+                    let value = self.cpu_bus.borrow().read((page as u16) << 8 | offset);
+                    self.ppu.borrow_mut().write_reg_oam_data(value);
+                }
+                let parity = self.cpu.borrow().dump_state().total_cycles & 1;
+                self.cpu.borrow_mut().increase_cycles(513 + parity);
             }
         }
+        let dmc_address = self.apu.borrow_mut().take_dmc_request();
+        if let Some(address) = dmc_address {
+            let sample = self.cpu_bus.borrow().read(address);
+            self.apu.borrow_mut().supply_dmc_sample(sample);
+            self.cpu.borrow_mut().increase_cycles(4);
+        }
+        self.cartridge.borrow_mut().clock_cpu();
+        self.cpu.borrow_mut().clock();
+
+        let mut ppu = self.ppu.borrow_mut();
+        for _ in 0..3 {
+            // PPU 每个 CPU 时钟周期执行 3 次
+            ppu.clock();
+            if ppu.check_nmi_interrupt() {
+                // 如果 PPU 检测到 NMI 中断，则触发 CPU 的 NMI 中断
+                self.cpu.borrow_mut().trigger_interrupt(Interrupt::Nmi);
+                ppu.clear_nmi_interrupt();
+            }
+        }
+        drop(ppu);
 
         self.apu.borrow_mut().clock();
-        if self.apu.borrow().check_irq_interrupt() {
-            // 如果 APU 检测到 IRQ 中断，则触发 CPU 的 IRQ 中断
-            self.cpu.borrow_mut().trigger_interrupt(Interrupt::Irq);
-            self.apu.borrow_mut().clear_irq_interrupt();
-        }
+        let irq = self.apu.borrow().check_irq_interrupt() || self.cartridge.borrow().irq_pending();
+        self.cpu.borrow_mut().set_irq_line(irq);
     }
 }

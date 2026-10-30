@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use std::{cell::RefCell, rc::Rc};
 
 use nes_base::{Apu, Ppu};
@@ -46,7 +48,7 @@ impl Ppu for MockPPU {
 
     fn clock(&mut self) {}
 
-    fn attach_bus(&mut self, bus: std::rc::Rc<std::cell::RefCell<dyn nes_base::BusAdapter>>) {}
+    fn attach_bus(&mut self, _bus: std::rc::Rc<std::cell::RefCell<dyn nes_base::BusAdapter>>) {}
 
     fn check_nmi_interrupt(&self) -> bool {
         false
@@ -130,3 +132,6 @@ fn new_board() -> BoardImpl {
     }
     .init()
 }
+
+mod game_tests;
+mod runtime_tests;

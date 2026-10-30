@@ -35,7 +35,7 @@ fn mmc1_serial_prg_modes_chr_banks_and_live_mirroring() {
     serial(&mut cart, 0xe000, 3);
     assert_eq!(cart.cpu_read(0x8000), 6);
     assert_eq!(cart.cpu_read(0xc000), 14);
-    serial(&mut cart, 0x8000, 0x1a); // fixed first PRG bank, split CHR, vertical mirror
+    serial(&mut cart, 0x8000, 0x1a); // 固定首个 PRG 存储块，分离 CHR 存储块，使用垂直镜像
     assert_eq!(cart.cpu_read(0x8000), 0);
     assert_eq!(cart.cpu_read(0xc000), 6);
     assert!(matches!(cart.mirroring(), Mirroring::Vertical));
@@ -43,7 +43,7 @@ fn mmc1_serial_prg_modes_chr_banks_and_live_mirroring() {
     serial(&mut cart, 0xc000, 5);
     assert_eq!(cart.ppu_read(0), 8);
     assert_eq!(cart.ppu_read(0x1000), 20);
-    serial(&mut cart, 0x8000, 3); // 32 KiB PRG, 8 KiB CHR, horizontal mirror
+    serial(&mut cart, 0x8000, 3); // 使用 32 KiB PRG、8 KiB CHR 和水平镜像
     assert_eq!(cart.cpu_read(0x8000), 4);
     assert_eq!(cart.cpu_read(0xc000), 6);
     assert_eq!(cart.ppu_read(0x1000), 12);
@@ -56,14 +56,14 @@ fn mmc1_reset_discards_partial_serial_write_and_ignores_adjacent_cycle() {
     let mut cart = cartridge(1, 8, 0);
     cart.cpu_write(0xe000, 1);
     cart.clock_cpu();
-    cart.cpu_write(0xe000, 1); // ignored
+    cart.cpu_write(0xe000, 1); // 此次写入应被忽略
     for _ in 0..4 {
         cart.clock_cpu();
         cart.clock_cpu();
         cart.cpu_write(0xe000, 0);
     }
     assert_eq!(cart.cpu_read(0x8000), 2);
-    serial(&mut cart, 0x8000, 0); // 32 KiB mode
+    serial(&mut cart, 0x8000, 0); // 32 KiB 模式
     cart.clock_cpu();
     cart.clock_cpu();
     cart.cpu_write(0x8000, 1);
@@ -140,10 +140,10 @@ fn mmc3_irq_filters_short_a12_pulses_and_remains_asserted_until_acknowledged() {
     cart.cpu_write(0xc001, 0);
     cart.cpu_write(0xe001, 0);
     cart.observe_ppu_address(0, 0);
-    cart.observe_ppu_address(0x1000, 9); // reload 1
+    cart.observe_ppu_address(0x1000, 9); // 重载计数值 1
     assert!(!cart.irq_pending());
     cart.observe_ppu_address(0, 10);
-    cart.observe_ppu_address(0x1000, 14); // too short
+    cart.observe_ppu_address(0x1000, 14); // 低电平间隔过短，不应触发计数
     assert!(!cart.irq_pending());
     cart.observe_ppu_address(0, 20);
     cart.observe_ppu_address(0x1000, 29);

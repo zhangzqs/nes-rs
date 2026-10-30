@@ -1,52 +1,32 @@
+use std::cell::Cell;
 
-#[derive(Debug, Clone, Copy, Default)]
+/// PPU 的 $2005 和 $2006 共用 v/t 地址寄存器、精细 X 滚动值以及同一个写入切换标志。
+#[derive(Default)]
 pub struct PpuAddressRegister {
-    /// 高字节
-    high: u8,
-    /// 低字节
-    low: u8,
-    /// 高位指针
-    high_ptr: bool,
+    pub v: Cell<u16>,
+    pub t: u16,
+    pub fine_x: u8,
+    pub second_write: Cell<bool>,
 }
 
 impl PpuAddressRegister {
-    pub fn reset_latch(&mut self) {
-        self.high_ptr = true;
-    }
-
-    pub fn set(&mut self, value: u16) {
-        self.high = (value >> 8) as u8;
-        self.low = (value & 0xFF) as u8;
-    }
-
-    pub fn get(&self) -> u16 {
-        ((self.high as u16) << 8) | (self.low as u16)
-    }
-
-    pub fn update(&mut self, value: u8) {
-        if self.high_ptr {
-            self.high = value;
+    pub fn write_address(&mut self, value: u8) {
+        if self.second_write.get() {
+            self.t = (self.t & 0x7f00) | value as u16;
+            self.v.set(self.t);
         } else {
-            self.low = value;
+            self.t = (self.t & 0x00ff) | ((value as u16 & 0x3f) << 8);
         }
-
-        if self.get() > 0x3FFF {
-            panic!("PPU address out of bounds: {}", self.get());
-        }
-
-        // 切换高位指针
-        self.high_ptr = !self.high_ptr;
+        self.second_write.set(!self.second_write.get());
     }
 
-    pub fn increment(&mut self, inc: u8) {
-        let lo = self.low;
-        self.low = self.low.wrapping_add(inc);
-        if self.low < lo {
-            // 如果低字节溢出，增加高字节
-            self.high = self.high.wrapping_add(1);
+    pub fn write_scroll(&mut self, value: u8) {
+        if self.second_write.get() {
+            self.t = (self.t & !0x73e0) | ((value as u16 & 7) << 12) | ((value as u16 & 0xf8) << 2);
+        } else {
+            self.fine_x = value & 7;
+            self.t = (self.t & !0x001f) | (value as u16 >> 3);
         }
-        if self.get() > 0x3FFF {
-            panic!("PPU address out of bounds after increment: {}", self.get());
-        }
+        self.second_write.set(!self.second_write.get());
     }
 }
