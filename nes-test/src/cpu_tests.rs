@@ -23,9 +23,9 @@ fn test_cpu_simple_instructions() {
         0x00, // BRK
     ];
     for (i, &byte) in program.iter().enumerate() {
-        board.cpu_bus.borrow_mut().write(0xc000 + i as u16, byte);
+        board.cpu_bus.borrow_mut().write(0x0600 + i as u16, byte);
     }
-    board.cpu.borrow_mut().set_reg_pc(0xc000);
+    board.cpu.borrow_mut().set_reg_pc(0x0600);
     let run_once = || {
         loop {
             board.cpu.borrow_mut().clock();
@@ -67,9 +67,9 @@ fn test_cpu_simple_flags() {
         0x00, // BRK
     ];
     for (i, &byte) in program.iter().enumerate() {
-        board.cpu_bus.borrow_mut().write(0xc000 + i as u16, byte);
+        board.cpu_bus.borrow_mut().write(0x0600 + i as u16, byte);
     }
-    board.cpu.borrow_mut().set_reg_pc(0xc000);
+    board.cpu.borrow_mut().set_reg_pc(0x0600);
     let run_once = || {
         loop {
             board.cpu.borrow_mut().clock();
@@ -104,6 +104,9 @@ fn test_cpu_nestest() {
     let testlogs = std::fs::read("testfiles/nestest.txt").unwrap();
 
     board.reset();
+    for _ in 0..7 {
+        board.cpu.borrow_mut().clock();
+    }
     board.cpu.borrow_mut().set_reg_pc(0xc000);
 
     for (line_no, line) in testlogs.lines().enumerate() {
