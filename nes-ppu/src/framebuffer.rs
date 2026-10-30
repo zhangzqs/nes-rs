@@ -31,7 +31,7 @@ impl FrameBuffer {
         self.pixels[index] = color & 0x3f;
         let rgb = NES_SYS_PALETTES[(color & 0x3f) as usize];
         let mut channels = [(rgb >> 16) as u8, (rgb >> 8) as u8, rgb as u8];
-        // Approximate NTSC emphasis by attenuating the other two components.
+        // 衰减另外两个颜色分量，近似模拟 NTSC 的颜色强调效果。
         for emphasized in 0..3 {
             if emphasis & (1 << emphasized) != 0 {
                 for (channel, value) in channels.iter_mut().enumerate() {

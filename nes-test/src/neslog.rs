@@ -68,7 +68,7 @@ impl From<NESLog> for CpuState {
     fn from(val: NESLog) -> Self {
         CpuState {
             total_cycles: val.cpu_cycles,
-            remaining_cycles: 0, // Remaining cycles are not logged in NESLog
+            remaining_cycles: 0, // NESLog 不记录剩余周期数
             reg_a: val.reg_a,
             reg_x: val.reg_x,
             reg_y: val.reg_y,

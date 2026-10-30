@@ -74,8 +74,8 @@ impl Cpu for CpuImpl {
         }
         if self.interrupt.is_none() || matches!(interrupt, Interrupt::Nmi | Interrupt::Reset) {
             if matches!(interrupt, Interrupt::Nmi) {
-                // The CPU polls before the final bus cycle. An edge after that poll
-                // is serviced after the following instruction.
+                // CPU 在最后一个总线周期之前采样中断；采样后到达的边沿
+                // 要等下一条指令执行完毕后才会响应。
                 self.defer_interrupt = self.context.remaining_cycles == 0;
             }
             self.interrupt = Some(interrupt);

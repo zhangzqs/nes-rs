@@ -10,7 +10,7 @@ fn pattern_planes_attributes_and_six_bit_palette_reach_framebuffer() {
     let console = Console::new(NESFile::new(rom)).unwrap();
     {
         let mut bus = console.board.ppu_bus.borrow_mut();
-        // Tile zero is opaque color 1; attribute quadrants choose four distinct palettes.
+        // 图案块 0 使用不透明颜色 1；属性表的四个象限分别选择不同的调色板。
         for row in 0..8 {
             bus.write(row, 0xff);
         }

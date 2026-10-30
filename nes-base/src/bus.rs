@@ -21,7 +21,7 @@ pub trait Writer {
 // 连接设备和总线的适配器
 pub trait BusAdapter: Reader + Writer {
     fn address_accept(&self, addr: u16) -> bool;
-    /// DMA writes are latched; the board performs the transfer after the CPU releases the bus.
+    /// 先锁存 DMA 写入请求，待 CPU 释放总线后由主板执行传输。
     fn take_dma_request(&self) -> Option<u8> {
         None
     }

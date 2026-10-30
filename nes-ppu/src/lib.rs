@@ -212,8 +212,8 @@ impl Ppu for PpuImpl {
         self.ppu_bus = bus;
     }
     fn clock(&mut self) {
-        // The NMI edge takes two PPU dots to reach the CPU; $2002/$2000 can
-        // cancel it during that interval. An edge already latched remains pending.
+        // NMI 边沿经过两个 PPU 点时钟才传到 CPU；在此期间访问 $2002/$2000
+        // 可以取消该边沿。已经锁存的边沿仍保持待响应状态。
         let delay = self.nmi_delay.get();
         if delay != 0 {
             self.nmi_delay.set(delay - 1);
@@ -240,7 +240,7 @@ impl Ppu for PpuImpl {
         self.render_clock();
         self.observe_address(self.bus_address.get());
         self.total_cycles = self.total_cycles.wrapping_add(1);
-        // Latch rendering one dot before the odd-frame end decision.
+        // 在判断奇数帧是否提前结束的前一个点时钟，锁存渲染状态。
         if self.scanline == 261 && self.cycle == 338 {
             self.skip_frame_dot = self.rendering();
         }

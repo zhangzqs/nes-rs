@@ -1,8 +1,8 @@
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PpuStatusRegister {
-    /// VBlank 标志
+    /// 垂直消隐标志
     pub vblank: bool,
-    /// Sprite 0 被渲染标志
+    /// 精灵 0 命中标志
     pub sprite_0_hit: bool,
     /// 精灵溢出标志
     pub sprite_overflow: bool,

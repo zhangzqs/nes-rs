@@ -1,6 +1,6 @@
 use std::cell::Cell;
 
-/// The PPU shares v/t/fine-X and a single write toggle between $2005 and $2006.
+/// PPU 的 $2005 和 $2006 共用 v/t 地址寄存器、精细 X 滚动值以及同一个写入切换标志。
 #[derive(Default)]
 pub struct PpuAddressRegister {
     pub v: Cell<u16>,

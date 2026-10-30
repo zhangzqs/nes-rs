@@ -92,8 +92,8 @@ fn cpu_dma_stalls_513_or_514_cycles_and_wraps_oam_without_borrow_panics() {
     nes.ppu.borrow_mut().write_reg_oam_addr(0x10);
     for _ in 0..13 {
         nes.board.clock();
-    } // reset + LDA + STA
-    nes.board.clock(); // first DMA cycle
+    } // 复位周期，加上 LDA 和 STA 的执行周期
+    nes.board.clock(); // 第一个 DMA 周期
     assert_eq!(nes.board.cpu.borrow().dump_state().remaining_cycles, 513);
     assert_eq!(nes.board.cpu.borrow().dump_state().reg_pc, 0x8005);
     for offset in 0..256u16 {
@@ -129,7 +129,7 @@ fn ppu_data_buffer_palette_bypass_and_shared_scroll_address_latch() {
     ppu.write_reg_address(0x20);
     ppu.write_reg_address(0);
     assert_eq!(ppu.read_reg_data(), 0x29);
-    // $2005's first write makes $2006's next write the low-byte write.
+    // 首次写入 $2005 后，下次写入 $2006 应被当作低字节写入。
     ppu.write_reg_scroll(0);
     ppu.write_reg_address(0x10);
     ppu.write_reg_data(0x5a);

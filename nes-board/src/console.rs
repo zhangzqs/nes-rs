@@ -4,7 +4,7 @@ use nes_cartridge::{CartridgeImpl, NESFile};
 use nes_ppu::PpuImpl;
 use std::{cell::RefCell, rc::Rc};
 
-/// Shared assembly for desktop play, deterministic replay and integration tests.
+/// 桌面游戏、确定性回放和集成测试共用的整机组装入口。
 pub struct Console {
     pub board: BoardImpl,
     pub ppu: Rc<RefCell<PpuImpl>>,

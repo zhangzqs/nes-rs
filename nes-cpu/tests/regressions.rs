@@ -52,7 +52,7 @@ fn each_clock_counts_once_including_instruction_and_interrupt_start() {
     assert_eq!(cpu.dump_state().reg_a, 1);
     assert_eq!(step(&mut cpu), 2);
     cpu.trigger_interrupt(Interrupt::Nmi);
-    step(&mut cpu); // Edge after the previous instruction poll is deferred.
+    step(&mut cpu); // 上一条指令采样之后到达的中断边沿会延迟响应。
     assert_eq!(step(&mut cpu), 7);
     assert_eq!(cpu.dump_state().reg_pc, 0x9000);
 }
@@ -115,15 +115,15 @@ fn address_and_rts_wrap_at_ffff() {
 fn irq_polls_the_mask_before_cli_and_sei_finish() {
     let (mut cpu, _) = setup(0x8000, &[0x58, 0xea, 0xea]);
     cpu.set_irq_line(true);
-    step(&mut cpu); // CLI clears I after the interrupt poll.
-    assert_eq!(step(&mut cpu), 2); // following NOP must execute
+    step(&mut cpu); // CLI 在中断采样后清除 I 标志。
+    assert_eq!(step(&mut cpu), 2); // 必须先执行紧随其后的 NOP
     assert_eq!(step(&mut cpu), 7);
     assert_eq!(cpu.dump_state().reg_pc, 0xa000);
 
     let (mut cpu, _) = setup(0x8000, &[0x58, 0x78, 0xea]);
     step(&mut cpu);
     cpu.set_irq_line(true);
-    step(&mut cpu); // SEI sets I after the interrupt poll.
+    step(&mut cpu); // SEI 在中断采样后设置 I 标志。
     assert_eq!(step(&mut cpu), 7);
     assert_eq!(cpu.dump_state().reg_pc, 0xa000);
 }

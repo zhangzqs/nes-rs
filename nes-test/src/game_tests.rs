@@ -1,4 +1,4 @@
-//! Optional commercial-ROM checks: ROMs are supplied locally and never fetched by tests.
+//! 可选的商业游戏 ROM 测试：ROM 由本地提供，测试不会自行下载。
 use nes_board::Console;
 use nes_cartridge::NESFile;
 
@@ -26,7 +26,7 @@ fn contra_starts_moves_jumps_and_fires() {
     frames(&mut nes, 600, 0, 0);
     frames(&mut nes, 1, 8, 0);
     frames(&mut nes, 399, 0, 0);
-    assert_eq!(ram(&nes, 0x90), 1); // normal player state
+    assert_eq!(ram(&nes, 0x90), 1); // 玩家处于正常状态
     let x = ram(&nes, 0x334);
     let y = ram(&nes, 0x31a);
     frames(&mut nes, 12, 0x82, 0);
@@ -42,7 +42,7 @@ fn contra_starts_moves_jumps_and_fires() {
 fn contra_two_players_receive_independent_controls() {
     let mut nes = load("NES_CONTRA_ROM");
     frames(&mut nes, 600, 0, 0);
-    frames(&mut nes, 1, 4, 0); // Select 2-player game.
+    frames(&mut nes, 1, 4, 0); // 选择双人游戏。
     frames(&mut nes, 1, 0, 0);
     frames(&mut nes, 1, 8, 0);
     frames(&mut nes, 397, 0, 0);

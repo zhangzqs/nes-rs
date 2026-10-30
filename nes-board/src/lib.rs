@@ -12,14 +12,14 @@ use nes_base::{
 };
 
 pub struct BoardImpl {
-    pub cpu_bus: Rc<RefCell<dyn Bus>>,                 // CPU bus
-    pub ppu_bus: Rc<RefCell<dyn Bus>>,                 // PPU bus
-    pub cpu: Rc<RefCell<dyn Cpu>>,                     // CPU
-    pub ppu: Rc<RefCell<dyn Ppu>>,                     // PPU
+    pub cpu_bus: Rc<RefCell<dyn Bus>>,                 // CPU 总线
+    pub ppu_bus: Rc<RefCell<dyn Bus>>,                 // PPU 总线
+    pub cpu: Rc<RefCell<dyn Cpu>>,                     // CPU 处理器
+    pub ppu: Rc<RefCell<dyn Ppu>>,                     // PPU 图像处理器
     pub ppu_name_tables_ram: Rc<RefCell<dyn Ram>>,     // PPU 名称表 RAM
     pub ppu_palettes_tables_ram: Rc<RefCell<dyn Ram>>, // PPU 调色板表 RAM
-    pub ram: Rc<RefCell<dyn Ram>>,                     // RAM
-    pub apu: Rc<RefCell<dyn nes_base::Apu>>,           // APU
+    pub ram: Rc<RefCell<dyn Ram>>,                     // 工作内存
+    pub apu: Rc<RefCell<dyn nes_base::Apu>>,           // APU 音频处理器
     pub cartridge: Rc<RefCell<dyn Cartridge>>,         // 游戏卡带
     pub joypad1: Option<Rc<RefCell<dyn Joypad>>>,      // 手柄1P
     pub joypad2: Option<Rc<RefCell<dyn Joypad>>>,      // 手柄2P
@@ -83,7 +83,7 @@ impl BoardImpl {
     }
 
     pub fn clock(&mut self) {
-        // Transfer only at an instruction boundary, with no CPU/bus borrow held.
+        // 仅在指令边界执行传输，此时不持有 CPU 或总线的借用。
         if self.cpu.borrow().remaining_cycles() == 0 {
             let page = self.cpu_bus.borrow().take_dma_request();
             if let Some(page) = page {

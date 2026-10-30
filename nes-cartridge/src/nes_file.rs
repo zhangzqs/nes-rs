@@ -18,9 +18,9 @@ pub struct NESFile {
 pub struct NESHeader {
     /// 文件头标识，必须是 "NES\x1A"
     pub magic: [u8; 4],
-    /// PRG-ROM banks 的数量，每 16KB 一块
+    /// PRG-ROM 存储块数量，每块 16 KiB。
     pub prg_banks: u8,
-    /// CHR-ROM banks 的数量，每 8KB 一块
+    /// CHR-ROM 存储块数量，每块 8 KiB。
     pub chr_banks: u8,
     /// 画面映射方式
     pub mirroring: Mirroring,
@@ -28,7 +28,7 @@ pub struct NESHeader {
     pub has_battery_backed: bool,
     /// 是否有 Trainer ROM，通常是 512 字节
     pub has_trainer: bool,
-    /// Mapper ID
+    /// 映射器编号。
     pub mapper_id: u8,
 }
 
@@ -62,7 +62,7 @@ impl From<&[u8; 16]> for NESHeader {
 
 const PRG_BANK_SIZE: usize = 0x4000; // 16KB
 const CHR_BANK_SIZE: usize = 0x2000; // 8KB
-const TRAINER_SIZE: usize = 0x0200; // 512 bytes
+const TRAINER_SIZE: usize = 0x0200; // 512 字节
 
 impl NESFile {
     /// 从文件路径加载 NES 文件
@@ -122,21 +122,21 @@ impl NESFile {
         &self.header
     }
 
-    /// Get PRG-ROM data
+    /// 获取 PRG-ROM 程序数据。
     pub fn prg_rom(&self) -> Vec<u8> {
         let start = self.prg_rom_start();
         let end = start + (self.header.prg_banks as usize * PRG_BANK_SIZE);
         self.bytes[start..end].to_vec()
     }
 
-    /// Get CHR-ROM data
+    /// 获取 CHR-ROM 图案数据。
     pub fn chr_rom(&self) -> Vec<u8> {
         let start = self.chr_rom_start();
         let end = start + (self.header.chr_banks as usize * CHR_BANK_SIZE);
         self.bytes[start..end].to_vec()
     }
 
-    /// Get trainer ROM data
+    /// 获取 Trainer 数据区。
     pub fn trainer_rom(&self) -> Vec<u8> {
         if !self.header.has_trainer {
             panic!("Nes file is not support to get trainer rom");

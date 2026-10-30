@@ -7,7 +7,7 @@ mod mapper4;
 mod mapper66;
 mod mapper7;
 
-/// Mappers translate addresses and own registers; cartridge memory is stored once by CartridgeImpl.
+/// 各映射器负责地址转换和寄存器状态；卡带内存由 CartridgeImpl 统一保存。
 pub trait Mapper {
     fn prg_address(&self, addr: u16, size: usize) -> usize;
     fn chr_address(&self, addr: u16) -> usize {

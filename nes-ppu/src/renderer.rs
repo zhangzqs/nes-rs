@@ -61,8 +61,8 @@ impl PpuImpl {
             return;
         }
         if self.rendering() {
-            // Expose real fetch phases to cartridge A12 detectors. Palette lookups and
-            // cached sprite composition must not create extra MMC3 IRQ edges.
+            // 将实际取数阶段的地址暴露给卡带 A12 检测器；调色板查询和
+            // 缓存的精灵合成不得额外产生 MMC3 IRQ 边沿。
             let v = self.address.v.get();
             if (1..=255).contains(&self.cycle) || (321..=335).contains(&self.cycle) {
                 let address = match self.cycle & 7 {

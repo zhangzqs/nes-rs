@@ -9,8 +9,8 @@ pub struct AddressingModeResult {
     pub pc_increment: u16,
 }
 
-// Addressing mode functions
-// see: https://wiki.nesdev.com/w/index.php/CPU_addressing_modes
+// 各种寻址模式的地址计算函数
+// 参考：https://wiki.nesdev.com/w/index.php/CPU_addressing_modes
 pub fn get_data_address(ctx: &Context) -> AddressingModeResult {
     let read_bus_16bit_uncross_page = |addr: u16| {
         let next_addr_high = addr & 0xFF00;

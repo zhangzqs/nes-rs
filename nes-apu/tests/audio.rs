@@ -5,8 +5,8 @@ use nes_base::Apu;
 fn pulse_produces_finite_audio_at_the_requested_sample_rate() {
     let mut apu = ApuImpl::new();
     apu.write_reg_control(1);
-    apu.write_reg_pulse1_control(0xbf); // 50% duty, constant volume, hold length
-    apu.write_reg_pulse1_timer_low(253); // about 440 Hz
+    apu.write_reg_pulse1_control(0xbf); // 占空比 50%，固定音量，保持长度计数
+    apu.write_reg_pulse1_timer_low(253); // 约 440 Hz
     apu.write_reg_pulse1_timer_high(0x08);
     for _ in 0..CPU_HZ {
         apu.clock();
@@ -44,7 +44,7 @@ fn dmc_wraps_sample_reads_and_irq_is_not_cleared_by_status_read() {
     let mut apu = ApuImpl::new();
     apu.write_reg_dmc_control(0x8f);
     apu.write_reg_dmc_address(0xff); // $FFC0
-    apu.write_reg_dmc_length(4); // 65 bytes: final byte wraps to $8000
+    apu.write_reg_dmc_length(4); // 共 65 字节，最后一个字节的地址回绕到 $8000
     apu.write_reg_control(0x10);
     let mut addresses = Vec::new();
     for _ in 0..40_000 {

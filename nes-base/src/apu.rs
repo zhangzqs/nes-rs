@@ -3,35 +3,35 @@ use std::{cell::RefCell, rc::Rc};
 use crate::{BusAdapter, Reader, Writer};
 
 pub trait Apu {
-    // Pulse1 registers
+    // 脉冲声道 1 寄存器
     fn write_reg_pulse1_control(&mut self, value: u8);
     fn write_reg_pulse1_sweep(&mut self, value: u8);
     fn write_reg_pulse1_timer_low(&mut self, value: u8);
     fn write_reg_pulse1_timer_high(&mut self, value: u8);
 
-    // Pulse2 registers
+    // 脉冲声道 2 寄存器
     fn write_reg_pulse2_control(&mut self, value: u8);
     fn write_reg_pulse2_sweep(&mut self, value: u8);
     fn write_reg_pulse2_timer_low(&mut self, value: u8);
     fn write_reg_pulse2_timer_high(&mut self, value: u8);
 
-    // Triangle registers
+    // 三角波声道寄存器
     fn write_reg_triangle_control(&mut self, value: u8);
     fn write_reg_triangle_timer_low(&mut self, value: u8);
     fn write_reg_triangle_timer_high(&mut self, value: u8);
 
-    // Noise registers
+    // 噪声声道寄存器
     fn write_reg_noise_control(&mut self, value: u8);
     fn write_reg_noise_period(&mut self, value: u8);
     fn write_reg_noise_length(&mut self, value: u8);
 
-    // DMC registers
+    // DMC 声道寄存器
     fn write_reg_dmc_control(&mut self, value: u8);
     fn write_reg_dmc_value(&mut self, value: u8);
     fn write_reg_dmc_address(&mut self, value: u8);
     fn write_reg_dmc_length(&mut self, value: u8);
 
-    // Other registers
+    // 其他寄存器
     fn write_reg_control(&mut self, value: u8);
     fn write_reg_frame_counter(&mut self, value: u8);
     fn read_reg_status(&self) -> u8;

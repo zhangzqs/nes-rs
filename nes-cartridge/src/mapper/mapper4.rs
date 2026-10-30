@@ -90,8 +90,8 @@ impl Mapper for Mapper4 {
         if !high && self.a12_high {
             self.a12_low_since = cycle;
         }
-        // Ignore the short low intervals between background pattern fetches.
-        // Three CPU cycles (nine PPU dots) distinguish scanline edges.
+        // 忽略背景图案取数之间短暂的低电平。
+        // 以三个 CPU 周期（九个 PPU 点时钟）为阈值，区分扫描线边沿。
         if high && !self.a12_high && cycle.saturating_sub(self.a12_low_since) >= 9 {
             if self.irq_counter == 0 || self.irq_reload {
                 self.irq_counter = self.irq_latch;

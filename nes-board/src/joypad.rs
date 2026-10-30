@@ -1,7 +1,7 @@
 use nes_base::Joypad;
 use std::cell::Cell;
 
-/// Bits are in controller serial order: A, B, Select, Start, Up, Down, Left, Right.
+/// 按位保存手柄串行读取顺序：A、B、选择、开始、上、下、左、右。
 #[derive(Default)]
 pub struct JoypadImpl {
     buttons: u8,
