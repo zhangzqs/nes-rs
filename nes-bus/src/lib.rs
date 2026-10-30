@@ -1,9 +1,13 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 
 use nes_base::{Bus, BusAdapter, Reader, Writer};
 
 pub struct BusImpl {
     devices: Vec<Rc<RefCell<dyn BusAdapter>>>,
+    open_bus: Cell<u8>,
 }
 
 impl Default for BusImpl {
@@ -16,6 +20,7 @@ impl BusImpl {
     pub fn new() -> Self {
         BusImpl {
             devices: Default::default(),
+            open_bus: Cell::new(0),
         }
     }
 }
@@ -29,27 +34,40 @@ impl Bus for BusImpl {
 impl Reader for BusImpl {
     fn read(&self, address: u16) -> u8 {
         for device in &self.devices {
-            if device.borrow().address_accept(address) {
-                return device.borrow().read(address);
+            let device = device.borrow();
+            if device.address_accept(address) {
+                let value = device.read(address);
+                self.open_bus.set(value);
+                return value;
             }
         }
-        panic!("Address out of range: 0x{:04X}", address);
+        self.open_bus.get()
     }
 }
 
 impl Writer for BusImpl {
     fn write(&mut self, address: u16, data: u8) {
+        self.open_bus.set(data);
         for device in &mut self.devices {
             if device.borrow().address_accept(address) {
                 device.borrow_mut().write(address, data);
                 return;
             }
         }
-        panic!("Address out of range: 0x{:04X}", address);
     }
 }
 
 impl BusAdapter for BusImpl {
+    fn observe_ppu_address(&self, addr: u16, cycle: u64) {
+        for device in &self.devices {
+            device.borrow().observe_ppu_address(addr, cycle);
+        }
+    }
+    fn take_dma_request(&self) -> Option<u8> {
+        self.devices
+            .iter()
+            .find_map(|device| device.borrow().take_dma_request())
+    }
     fn address_accept(&self, addr: u16) -> bool {
         self.devices
             .iter()
