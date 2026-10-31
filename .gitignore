@@ -4,4 +4,5 @@
 /roms/
 /artifacts/
 /nes-web/pkg/
+/nes-wasm/pkg/
 /.playwright-cli/

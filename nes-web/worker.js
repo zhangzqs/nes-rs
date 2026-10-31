@@ -1,4 +1,4 @@
-import init, { Emulator } from "./pkg/nes_web.js";
+import init, { Emulator } from "./pkg/nes_wasm.js";
 
 const ready = init();
 let emulator;

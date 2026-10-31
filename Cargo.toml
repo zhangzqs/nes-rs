@@ -10,7 +10,7 @@ members = [
     "nes-board",
     "nes-cartridge",
     "nes-test",
-    "nes-ppu", "nes-emulator", "nes-web",
+    "nes-ppu", "nes-emulator", "nes-wasm",
 ]
 
 [profile.release]

@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import init, { Emulator } from "../pkg/nes_web.js";
+import init, { Emulator } from "../pkg/nes_wasm.js";
 
-await init({ module_or_path: await readFile(new URL("../pkg/nes_web_bg.wasm", import.meta.url)) });
+await init({ module_or_path: await readFile(new URL("../pkg/nes_wasm_bg.wasm", import.meta.url)) });
 
 function rom() {
   const bytes = new Uint8Array(16 + 0x8000);

@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:wasm": "wasm-pack build . --target web --release --locked",
+    "build:wasm": "wasm-pack build ../nes-wasm --target web --release --locked && mkdir -p pkg && cp -R ../nes-wasm/pkg/. pkg/",
     "test": "node --test tests/*.test.js",
     "check": "pnpm run build:wasm && pnpm test"
   }
