@@ -2,5 +2,9 @@
   "name": "nes-rs-web",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test tests/*.test.js" }
+  "scripts": {
+    "build:wasm": "wasm-pack build . --target web --release --locked",
+    "test": "node --test tests/*.test.js",
+    "check": "pnpm run build:wasm && pnpm test"
+  }
 }
