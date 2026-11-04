@@ -5,7 +5,7 @@ const canvas = $("screen");
 const context = canvas.getContext("2d", { alpha: false });
 const pads = [0, 0];
 const keys = [
-  ["KeyJ", "KeyK", "KeyG", "KeyH", "KeyW", "KeyS", "KeyA", "KeyD"],
+  ["KeyK", "KeyJ", "KeyG", "KeyH", "KeyW", "KeyS", "KeyA", "KeyD"],
   ["Numpad1", "Numpad2", "Numpad0", "NumpadEnter", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"],
 ];
 let audio, worker, saveKey, running = false, loaded = false, inFlight = 0, priming = false;

@@ -19,6 +19,10 @@ def main():
         parser.error(f"ROM not found: {args.rom}")
 
     class Handler(SimpleHTTPRequestHandler):
+        def end_headers(self):
+            self.send_header("Cache-Control", "no-store")
+            super().end_headers()
+
         def do_GET(self):
             if urlsplit(self.path).path == "/local-game.nes" and args.rom:
                 data = args.rom.read_bytes()
