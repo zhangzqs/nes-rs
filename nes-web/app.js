@@ -5,8 +5,8 @@ const canvas = $("screen");
 const context = canvas.getContext("2d", { alpha: false });
 const pads = [0, 0];
 const keys = [
-  ["KeyZ", "KeyX", "ShiftRight", "Enter", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"],
-  ["KeyG", "KeyH", "KeyR", "KeyT", "KeyW", "KeyS", "KeyA", "KeyD"],
+  ["KeyJ", "KeyK", "KeyG", "KeyH", "KeyW", "KeyS", "KeyA", "KeyD"],
+  ["Numpad1", "Numpad2", "Numpad0", "NumpadEnter", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"],
 ];
 let audio, worker, saveKey, running = false, loaded = false, inFlight = 0, priming = false;
 let epoch = 0, animation = 0, frameCount = 0, loadRequest = 0;
@@ -64,7 +64,7 @@ async function play() {
   inFlight = 0;
   $("pause").textContent = "暂停";
   $("light").classList.add("on");
-  status("正在运行 · Enter 开始游戏");
+  status("正在运行 · H 开始游戏");
   canvas.focus({ preventScroll: true });
   tick();
 }
