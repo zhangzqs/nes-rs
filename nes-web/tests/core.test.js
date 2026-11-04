@@ -47,3 +47,19 @@ test("malformed and unsupported ROMs are reported through the WASM boundary", ()
   unsupported[6] = 0x50;
   assert.throws(() => new Emulator(unsupported), /mapper 5/i);
 });
+
+test("RAM writes are visible to the CPU and snapshots cover only unique work RAM", () => {
+  const image = rom();
+  image.set([0xad, 0x5a, 0x07, 0x8d, 0, 0x60, 0x4c, 0x06, 0x80], 16);
+  const emulator = new Emulator(image);
+  const before = emulator.ram_snapshot();
+  assert.equal(before.length, 0x800);
+  assert.equal(before[0x75a], 0);
+  emulator.write_ram(0x75a, 9);
+  assert.equal(emulator.ram_snapshot()[0x75a], 9);
+  assert.equal(before[0x75a], 0);
+  emulator.frame();
+  assert.equal(emulator.save_ram()[0], 9);
+  assert.throws(() => emulator.write_ram(0x800, 1), /RAM address/);
+  emulator.free();
+});

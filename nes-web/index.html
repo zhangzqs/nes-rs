@@ -49,6 +49,24 @@
           </dl>
           <details><summary>双人操作</summary><p>2P：方向键移动，小键盘 1 跳跃、2 射击，0 选择、Enter 开始。</p></details>
         </div>
+        <details id="memory-tool" class="memory-tool">
+          <summary>内存搜索 / 修改</summary>
+          <p>搜索 $0000–$07FF 工作内存，每个地址为 0–255 的单字节值。命数可能比画面显示少 1。</p>
+          <label for="memory-value">搜索值（留空表示未知）</label>
+          <div class="memory-row"><input id="memory-value" type="number" min="0" max="255" placeholder="0–255"><button id="memory-start" disabled>开始搜索</button></div>
+          <label for="memory-rule">继续筛选</label>
+          <div class="memory-row"><select id="memory-rule">
+            <option value="equal">等于搜索值</option><option value="not-equal">不等于搜索值</option>
+            <option value="increased">比上次增加</option><option value="decreased">比上次减少</option>
+            <option value="changed">比上次变化</option><option value="unchanged">比上次不变</option>
+          </select><button id="memory-filter" disabled>过滤</button></div>
+          <p id="memory-count">载入游戏后可搜索。</p>
+          <div id="memory-candidates" class="memory-candidates"></div>
+          <label for="memory-write-value">修改选中地址</label>
+          <div class="memory-row"><input id="memory-write-value" type="number" min="0" max="255" placeholder="新值"><button id="memory-write" disabled>写入</button></div>
+          <button id="memory-reset" disabled>重新搜索</button>
+          <p id="memory-status" role="status">可先暂停游戏再写入，避免数值立刻被游戏覆盖。</p>
+        </details>
       </aside>
     </div>
     <footer><span>保持像素原样，重温熟悉的关卡。</span><span>NTSC · 双手柄 · 本地电池存档</span></footer>

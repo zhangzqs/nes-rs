@@ -45,6 +45,18 @@ dd { margin: 0; display: flex; gap: 4px; }
 kbd { font: 11px Consolas, monospace; border: 1px solid #afb7ad; border-bottom-width: 3px; background: #eef0e9; border-radius: 3px; min-width: 24px; text-align: center; padding: 4px 5px; }
 details { font-size: 11px; line-height: 1.8; color: var(--muted); margin-top: 14px; }
 summary { cursor: pointer; }
+.memory-tool { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 18px; font-size: 12px; }
+.memory-tool summary { color: var(--ink); font-size: 13px; font-weight: 600; }
+.memory-tool p { line-height: 1.6; }
+.memory-tool label { display: block; margin-top: 12px; }
+.memory-row { display: flex; gap: 6px; margin-top: 6px; }
+.memory-row input, .memory-row select { flex: 1; min-width: 0; padding: 7px; font: inherit; }
+.memory-row button { flex: none; padding: 7px 9px; }
+.memory-candidates { max-height: 180px; overflow-y: auto; }
+.memory-candidates button { display: flex; justify-content: space-between; width: 100%; margin-top: 4px; padding: 6px 8px; font: 12px Consolas, monospace; }
+.memory-candidates button[aria-pressed="true"] { border-color: var(--red); color: var(--red); }
+#memory-reset { width: 100%; margin-top: 10px; }
+#memory-status { min-height: 38px; }
 footer { display: flex; justify-content: space-between; gap: 12px; padding: 25px 0 0; color: var(--muted); font-size: 11px; }
 :focus-visible { outline: 3px solid #536f88; outline-offset: 3px; }
 .screen:fullscreen { display: grid; place-items: center; border: 0; border-radius: 0; background: black; }
