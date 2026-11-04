@@ -2,6 +2,14 @@
 
 模块化 Rust NES 模拟器。提供 SDL2 桌面版和 WebAssembly 网页版，共用 NTSC CPU/PPU/APU、双手柄，以及 Mapper 0、1、2、3、4、7、66。
 
+## 运行截图
+
+在 Chromium 中载入本地 ROM 并进入关卡后截取；仓库不包含这些游戏 ROM。
+
+| 《超级马里奥兄弟》1-1 | 美版《魂斗罗》第一关 |
+| --- | --- |
+| ![网页版运行超级马里奥兄弟 1-1](docs/screenshots/super-mario-bros-web.png) | ![网页版运行美版魂斗罗第一关](docs/screenshots/contra-usa-web.png) |
+
 ## 网页版
 
 需要 Rust stable、wasm-pack、pnpm 和 Python 3；网页构建不依赖 SDL2。
