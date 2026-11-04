@@ -48,6 +48,21 @@ impl Emulator {
         }
     }
 
+    /// 读取唯一的 2 KiB CPU 工作内存，避免访问有副作用的硬件寄存器。
+    pub fn ram_snapshot(&self) -> Vec<u8> {
+        let ram = self.console.board.ram.borrow();
+        (0..0x800).map(|address| ram.read(address)).collect()
+    }
+
+    /// 向 CPU 工作内存写入一个字节；镜像地址不接受直接写入。
+    pub fn write_ram(&mut self, address: u16, value: u8) -> Result<(), JsValue> {
+        if address >= 0x800 {
+            return Err(JsValue::from_str("RAM address must be $0000-$07FF"));
+        }
+        self.console.board.ram.borrow_mut().write(address, value);
+        Ok(())
+    }
+
     pub fn reset(&mut self) {
         self.console.board.reset();
     }

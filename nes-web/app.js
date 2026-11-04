@@ -1,4 +1,5 @@
 import { AudioPlayback, AUDIO_LEAD } from "./audio.js";
+import { MemoryTool } from "./memory-tool.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("screen");
@@ -10,6 +11,7 @@ const keys = [
 ];
 let audio, worker, saveKey, running = false, loaded = false, inFlight = 0, priming = false;
 let epoch = 0, animation = 0, frameCount = 0, loadRequest = 0;
+const memoryTool = new MemoryTool((message) => worker.postMessage(message));
 
 function status(text, error = false) {
   $("status").textContent = text;
@@ -80,6 +82,7 @@ async function loadRom(bytes, name, request) {
   await pause();
   if (request !== loadRequest) return;
   loaded = false;
+  memoryTool.reset();
   $("pause").disabled = $("reset").disabled = true;
   worker?.terminate();
   status("正在载入卡带…");
@@ -105,6 +108,7 @@ async function loadRom(bytes, name, request) {
     if (worker !== current) return;
     if (data.type === "ready") {
       loaded = true;
+      memoryTool.setLoaded();
       $("empty").hidden = true;
       $("game-name").textContent = name.replace(/\.nes$/i, "");
       $("pause").disabled = $("reset").disabled = false;
@@ -129,6 +133,8 @@ async function loadRom(bytes, name, request) {
       context.putImageData(new ImageData(new Uint8ClampedArray(data.pixels.buffer), 256, 240), 0, 0);
     } else if (data.type === "error") {
       fail(data.message);
+    } else if (data.type.startsWith("memory-")) {
+      memoryTool.handle(data);
     }
   };
   current.postMessage({ type: "load", rom: new Uint8Array(bytes), save }, [bytes]);
@@ -152,6 +158,7 @@ async function resetGame() {
   if (!loaded) return;
   await pause();
   loaded = false;
+  memoryTool.reset();
   $("pause").disabled = $("reset").disabled = true;
   frameCount = 0;
   worker.postMessage({ type: "reset" });
@@ -167,7 +174,7 @@ $("fullscreen").onclick = () => {
 };
 
 function handleKey(event, down) {
-  if (!loaded || (down && event.target.matches("input, summary"))) return;
+  if (!loaded || (down && (event.target.matches("input, summary") || event.target.closest(".memory-tool")))) return;
   if (event.code === "F2") {
     event.preventDefault();
     if (down && !event.repeat) void resetGame().catch(fail);

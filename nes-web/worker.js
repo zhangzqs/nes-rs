@@ -25,8 +25,19 @@ self.onmessage = async ({ data }) => {
       emulator.reset();
       frames = 0;
       self.postMessage({ type: "ready", mapper: emulator.mapper() });
+    } else if (data.type === "memory-snapshot") {
+      const bytes = emulator.ram_snapshot();
+      self.postMessage({ type: "memory-snapshot", requestId: data.requestId, bytes }, [bytes.buffer]);
+    } else if (data.type === "memory-write") {
+      if (!Number.isInteger(data.address) || data.address < 0 || data.address >= 0x800 ||
+          !Number.isInteger(data.value) || data.value < 0 || data.value > 255) {
+        throw new Error("内存地址或数值超出范围");
+      }
+      emulator.write_ram(data.address, data.value);
+      self.postMessage({ type: "memory-written", requestId: data.requestId, address: data.address, value: data.value });
     }
   } catch (error) {
-    self.postMessage({ type: "error", message: String(error) });
+    self.postMessage({ type: data.type.startsWith("memory-") ? "memory-error" : "error",
+      requestId: data.requestId, message: String(error) });
   }
 };
