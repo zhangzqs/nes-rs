@@ -13,8 +13,8 @@ def main():
     parser.add_argument("--rom", type=Path, help="Offer this local ROM in the browser")
     args = parser.parse_args()
     web = Path(__file__).resolve().parents[1] / "nes-web"
-    if not (web / "pkg/nes_web_bg.wasm").exists():
-        parser.error("Build first: wasm-pack build nes-web --target web --release --locked")
+    if not (web / "pkg/nes_wasm_bg.wasm").exists():
+        parser.error("Build first: pnpm web:build")
     if args.rom and not args.rom.is_file():
         parser.error(f"ROM not found: {args.rom}")
 
