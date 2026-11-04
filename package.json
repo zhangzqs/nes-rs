@@ -1,0 +1,10 @@
+{
+  "name": "nes-rs",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "web:build": "pnpm --dir nes-web build:wasm",
+    "web:test": "pnpm --dir nes-web test",
+    "web:check": "pnpm run web:build && pnpm run web:test"
+  }
+}
