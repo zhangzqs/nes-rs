@@ -29,12 +29,8 @@ impl Emulator {
             .run_frame()
             .map_err(|e| JsValue::from_str(&e))?;
         let ppu = self.console.ppu.borrow();
-        let rgb = ppu.framebuffer().rgb();
-        let mut rgba = Vec::with_capacity(256 * 240 * 4);
-        for pixel in rgb.as_chunks::<3>().0 {
-            rgba.extend_from_slice(pixel);
-            rgba.push(255);
-        }
+        let mut rgba = vec![0; 256 * 240 * 4];
+        ppu.framebuffer().write_rgba(&mut rgba);
         Ok(rgba)
     }
 
