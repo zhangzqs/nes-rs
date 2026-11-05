@@ -52,6 +52,18 @@ fn nrom_mirrors_16k_and_ignores_rom_writes() {
     cart.ppu_write(0, 0);
     assert_eq!(cart.ppu_read(0), 0x29);
 }
+
+#[test]
+fn supports_rom_borrowed_from_static_storage() {
+    static ROM: &[u8] = include_bytes!("../../nes-test/testfiles/nestest.nes");
+    let nes = NESFile::from_static(ROM);
+    assert_eq!(nes.header().mapper_id, 0);
+    assert_eq!(nes.prg_rom().as_ptr(), ROM.as_ptr().wrapping_add(16));
+
+    let cart = CartridgeImpl::new(nes);
+    assert_ne!(cart.cpu_read(0x8000), 0);
+}
+
 #[test]
 fn uxrom_switches_lower_bank_keeps_vectors_fixed_and_supports_chr_ram() {
     let mut bytes = rom(8, 0, 0x20);

@@ -24,6 +24,7 @@ pub fn run(console: &mut Console, mute: bool) -> Result<(), String> {
     let mut texture = creator
         .create_texture_streaming(PixelFormatEnum::RGB24, 256, 240)
         .map_err(|e| e.to_string())?;
+    let mut rgb_frame = vec![0; 256 * 240 * 3];
     let audio = if mute {
         None
     } else {
@@ -118,8 +119,9 @@ pub fn run(console: &mut Console, mute: bool) -> Result<(), String> {
         if let Some(audio) = &audio {
             audio.queue(&samples)?;
         }
+        console.ppu.borrow().framebuffer().write_rgb(&mut rgb_frame);
         texture
-            .update(None, console.ppu.borrow().framebuffer().rgb(), 256 * 3)
+            .update(None, &rgb_frame, 256 * 3)
             .map_err(|e| e.to_string())?;
         canvas.clear();
         canvas.copy(&texture, None, None)?;

@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nes_base::Mirroring;
 
 trait BitOperations {
@@ -11,10 +13,11 @@ impl BitOperations for u8 {
 }
 
 pub struct NESFile {
-    bytes: Vec<u8>,
+    bytes: Cow<'static, [u8]>,
     header: NESHeader,
 }
 
+#[derive(Clone, Copy)]
 pub struct NESHeader {
     /// 文件头标识，必须是 "NES\x1A"
     pub magic: [u8; 4],
@@ -81,6 +84,19 @@ impl NESFile {
     }
 
     pub fn try_new(bytes: Vec<u8>) -> Result<Self, String> {
+        Self::try_new_bytes(Cow::Owned(bytes))
+    }
+
+    /// 从 Flash 中借用静态 ROM 数据，不复制整份 ROM 到堆上。
+    pub fn from_static(bytes: &'static [u8]) -> Self {
+        Self::try_from_static(bytes).expect("Invalid iNES ROM")
+    }
+
+    pub fn try_from_static(bytes: &'static [u8]) -> Result<Self, String> {
+        Self::try_new_bytes(Cow::Borrowed(bytes))
+    }
+
+    fn try_new_bytes(bytes: Cow<'static, [u8]>) -> Result<Self, String> {
         let raw: &[u8; 16] = bytes
             .get(..16)
             .ok_or("Truncated iNES header")?
@@ -122,18 +138,32 @@ impl NESFile {
         &self.header
     }
 
-    /// 获取 PRG-ROM 程序数据。
-    pub fn prg_rom(&self) -> Vec<u8> {
+    /// 获取 PRG-ROM 程序数据，不复制底层 ROM。
+    pub fn prg_rom(&self) -> &[u8] {
         let start = self.prg_rom_start();
         let end = start + (self.header.prg_banks as usize * PRG_BANK_SIZE);
-        self.bytes[start..end].to_vec()
+        &self.bytes[start..end]
     }
 
-    /// 获取 CHR-ROM 图案数据。
-    pub fn chr_rom(&self) -> Vec<u8> {
+    /// 获取 CHR-ROM 图案数据，不复制底层 ROM。
+    pub fn chr_rom(&self) -> &[u8] {
         let start = self.chr_rom_start();
         let end = start + (self.header.chr_banks as usize * CHR_BANK_SIZE);
-        self.bytes[start..end].to_vec()
+        &self.bytes[start..end]
+    }
+
+    pub(crate) fn prg_range(&self) -> std::ops::Range<usize> {
+        let start = self.prg_rom_start();
+        start..start + self.header.prg_banks as usize * PRG_BANK_SIZE
+    }
+
+    pub(crate) fn chr_range(&self) -> std::ops::Range<usize> {
+        let start = self.chr_rom_start();
+        start..start + self.header.chr_banks as usize * CHR_BANK_SIZE
+    }
+
+    pub(crate) fn into_parts(self) -> (Cow<'static, [u8]>, NESHeader) {
+        (self.bytes, self.header)
     }
 
     /// 获取 Trainer 数据区。

@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nes_base::{Cartridge, Mirroring};
 mod mapper;
 mod nes_file;
@@ -7,8 +9,10 @@ pub use nes_file::NESFile;
 pub struct CartridgeImpl {
     mapper: Box<dyn Mapper>,
     mirroring: Mirroring,
-    prg: Vec<u8>,
-    chr: Vec<u8>,
+    rom: Cow<'static, [u8]>,
+    prg_range: std::ops::Range<usize>,
+    chr_range: std::ops::Range<usize>,
+    chr_ram_data: Option<Vec<u8>>,
     chr_ram: bool,
     ram: Vec<u8>,
     battery: bool,
@@ -19,7 +23,7 @@ impl CartridgeImpl {
         Self::try_new(nes).expect("Unsupported cartridge")
     }
     pub fn try_new(nes: NESFile) -> Result<Self, String> {
-        let header = nes.header();
+        let header = *nes.header();
         let mapper = mapper::create(header.mapper_id)?;
         let prg = header.prg_banks;
         let chr = header.chr_banks;
@@ -45,15 +49,16 @@ impl CartridgeImpl {
         if header.has_trainer {
             ram[0x1000..0x1200].copy_from_slice(&nes.trainer_rom());
         }
+        let prg_range = nes.prg_range();
+        let chr_range = nes.chr_range();
+        let (rom, _) = nes.into_parts();
         Ok(Self {
             mapper,
             mirroring: header.mirroring,
-            prg: nes.prg_rom(),
-            chr: if chr == 0 {
-                vec![0; 0x2000]
-            } else {
-                nes.chr_rom()
-            },
+            rom,
+            prg_range,
+            chr_range,
+            chr_ram_data: (chr == 0).then(|| vec![0; 0x2000]),
             chr_ram: chr == 0,
             ram,
             battery: header.has_battery_backed,
@@ -66,7 +71,9 @@ impl Cartridge for CartridgeImpl {
         match addr {
             0x6000..=0x7fff if self.mapper.ram_enabled() => self.ram[addr as usize & 0x1fff],
             0x8000..=0xffff => {
-                self.prg[self.mapper.prg_address(addr, self.prg.len()) % self.prg.len()]
+                let offset =
+                    self.mapper.prg_address(addr, self.prg_range.len()) % self.prg_range.len();
+                self.rom[self.prg_range.start + offset]
             }
             _ => 0,
         }
@@ -81,12 +88,17 @@ impl Cartridge for CartridgeImpl {
         }
     }
     fn ppu_read(&self, addr: u16) -> u8 {
-        self.chr[self.mapper.chr_address(addr & 0x1fff) % self.chr.len()]
+        let offset = self.mapper.chr_address(addr & 0x1fff);
+        if self.chr_ram {
+            self.chr_ram_data.as_ref().unwrap()[offset % 0x2000]
+        } else {
+            self.rom[self.chr_range.start + offset % self.chr_range.len()]
+        }
     }
     fn ppu_write(&mut self, addr: u16, value: u8) {
         if self.chr_ram {
-            let index = self.mapper.chr_address(addr & 0x1fff) % self.chr.len();
-            self.chr[index] = value;
+            let index = self.mapper.chr_address(addr & 0x1fff) % 0x2000;
+            self.chr_ram_data.as_mut().unwrap()[index] = value;
         }
     }
     fn mirroring(&self) -> Mirroring {
